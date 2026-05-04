@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "title": "Comprehensive Management",
+    "description": "Effortlessly manage multiple clinic locations, diverse doctor schedules, and paperless patient records from one unified dashboard.",
+    "icon": "Building2"
+  },
+  {
+    "id": 2,
+    "title": "Smart Scheduling",
+    "description": "Enable 24/7 online booking with a smart slot engine that automatically factors in doctor availability, breaks, and holidays.",
+    "icon": "CalendarClock"
+  },
+  {
+    "id": 3,
+    "title": "Digital Health Records",
+    "description": "Go paperless with structured clinical encounters, digital prescriptions, and a secure, searchable medical history for every patient.",
+    "icon": "Stethoscope"
+  },
+  { 
+    "id": 4,
+    "title": "Telemedicine Ready",
+    "description": "Conduct virtual consultations with built-in Zoom and Google Meet support, featuring automatic meeting link generation and calendar sync.",
+    "icon": "Video"
+  }
+]

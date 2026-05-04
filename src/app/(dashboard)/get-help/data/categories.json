@@ -1,0 +1,11 @@
+[
+  { "name": "All", "count": 42 },
+  { "name": "General", "count": 5 },
+  { "name": "Appointments", "count": 6 },
+  { "name": "Patient Care", "count": 6 },
+  { "name": "Billing & Payments", "count": 5 },
+  { "name": "Telemedicine", "count": 3 },
+  { "name": "Communication", "count": 5 },
+  { "name": "Management", "count": 8 },
+  { "name": "Security", "count": 4 }
+]
