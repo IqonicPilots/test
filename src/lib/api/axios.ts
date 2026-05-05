@@ -14,14 +14,13 @@ import {
 /**
  * Browser: default same-origin `/api/v1` → Next `rewrites` → Express (no CORS / no OPTIONS preflight).
  * Server: use `BACKEND_INTERNAL_URL` or localhost (relative `/api/v1` is invalid for Node axios).
- * Browser override: set `NEXT_PUBLIC_API_BASE_URL` to a relative path (e.g. `/api/v1`).
- * Absolute browser URLs are ignored here to prevent accidental cross-origin CORS preflight calls.
+ * Browser override: set `NEXT_PUBLIC_API_BASE_URL` to a full backend URL or a relative path.
  */
 function resolveApiBaseUrl(): string {
   const fromEnv = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "")
 
   if (typeof window !== "undefined") {
-    if (fromEnv?.startsWith("/")) return fromEnv
+    if (fromEnv) return fromEnv
     return "/api/v1"
   }
 

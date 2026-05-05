@@ -36,28 +36,42 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
             return;
         }
 
-        const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000", {
-            transports: ["polling", "websocket"],
+        let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "";
+        
+        // Ensure we are connecting to the ROOT, not /api/v1
+        if (socketUrl.includes("/api/v1")) {
+            socketUrl = socketUrl.split("/api/v1")[0];
+        }
+        
+        const socketInstance = io(socketUrl, {
+            transports: ["websocket", "polling"],
             reconnection: true,
+            reconnectionAttempts: Infinity, // Keep trying if Render spins down
+            reconnectionDelay: 2000,
             auth: { token: token }
         });
 
         socketInstance.on("connect", () => {
+            console.log("🚀 Socket Connected:", socketInstance.id);
             setIsConnected(true);
 
-            // Join user room if logged in (Though backend handle it, redundancy is safe)
             if (profile?._id) {
                 socketInstance.emit("join", `user:${profile._id}`);
+                // Refresh queries on connect to catch missed notifications
+                queryClient.invalidateQueries({ queryKey: notificationKeys.all });
             }
         });
 
         socketInstance.on("connect_error", (err) => {
+            console.error("❌ Socket Connection Error:", err.message);
         });
 
         socketInstance.on("error", (error) => {
+            console.error("❌ Socket Error:", error);
         });
 
-        socketInstance.on("disconnect", () => {
+        socketInstance.on("disconnect", (reason) => {
+            console.warn("⚠️ Socket Disconnected:", reason);
             setIsConnected(false);
         });
 
