@@ -198,7 +198,7 @@ export function ImportDialog({
             <FileSpreadsheet className="h-5 w-5 text-primary" />
             {title}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-start">
             {description}
           </DialogDescription>
         </DialogHeader>

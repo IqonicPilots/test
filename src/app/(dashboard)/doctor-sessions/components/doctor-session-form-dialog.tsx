@@ -128,10 +128,10 @@ const doctorSessionDaySchema = z
     })
   })
 
-const doctorSessionFormSchema = z
+const getDoctorSessionFormSchema = (isDoctor: boolean) => z
   .object({
     clinicId: z.string().min(1, { message: "Please select a clinic." }),
-    doctorId: z.string().min(1, { message: "Please select a doctor." }),
+    doctorId: isDoctor ? z.string() : z.string().min(1, { message: "Please select a doctor." }),
     sessions: z.array(doctorSessionDaySchema).length(DOCTOR_SESSION_DAYS.length),
   })
   .superRefine((value, ctx) => {
@@ -146,7 +146,7 @@ const doctorSessionFormSchema = z
 
 type DoctorSessionBreakFormValue = z.infer<typeof doctorSessionBreakSchema>
 type DoctorSessionDayFormValue = z.infer<typeof doctorSessionDaySchema>
-export type DoctorSessionFormValues = z.infer<typeof doctorSessionFormSchema>
+export type DoctorSessionFormValues = z.infer<ReturnType<typeof getDoctorSessionFormSchema>>
 
 interface DoctorSessionFormDialogProps {
   open: boolean
@@ -302,10 +302,10 @@ export function DoctorSessionFormDialog({
   }, [profile])
 
 
-    const isDoctor = role === "doctor"
-    const defaultClinicId = (isClinicAdminOrReceptionist || isDoctor) && assignedClinicId ? assignedClinicId : fallbackClinicId
+  const isDoctor = role === "doctor"
+  const defaultClinicId = (isClinicAdminOrReceptionist || isDoctor) && assignedClinicId ? assignedClinicId : fallbackClinicId
 
-    const defaultValues = useMemo(
+  const defaultValues = useMemo(
     () => {
       const baseValues =
         mode === "edit"
@@ -376,8 +376,8 @@ export function DoctorSessionFormDialog({
   async function handleSubmit(values: DoctorSessionFormValues) {
     const normalizedValues: DoctorSessionFormValues = {
       ...values,
-      clinicId: values.clinicId || fallbackClinicId || "",
-      doctorId: values.doctorId || fallbackDoctorId || "",
+      clinicId: values.clinicId || (isDoctor ? assignedClinicId : "") || fallbackClinicId || "",
+      doctorId: values.doctorId || (isDoctor ? profile?._id : "") || fallbackDoctorId || "",
       sessions: values.sessions.map((session) => ({
         ...session,
         breaks: session.breaks.map((item) => ({
@@ -398,9 +398,13 @@ export function DoctorSessionFormDialog({
 
   return (
     <GenericFormDialog
-      title={mode === "edit" ? "Edit Doctor Session" : "Add New Doctor Session"}
+      title={
+        mode === "edit"
+          ? (isDoctor ? "Edit Session" : "Edit Doctor Session")
+          : (isDoctor ? "Add Session" : "Add New Doctor Session")
+      }
       description="Configure clinic, doctor, session days, timings, and breaks."
-      formSchema={doctorSessionFormSchema}
+      formSchema={getDoctorSessionFormSchema(isDoctor)}
       defaultValues={defaultValues}
       onSubmit={handleSubmit}
       open={open}
@@ -418,11 +422,11 @@ export function DoctorSessionFormDialog({
         }
       }}
       renderContent={({ form, values }) => {
-        if (isLoadingSession) {
+        if (isLoadingSession || !profile) {
           return (
             <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
               <Loader2 className="mr-2 size-4 animate-spin" />
-              Loading latest doctor session...
+              Loading session details...
             </div>
           )
         }
@@ -435,6 +439,16 @@ export function DoctorSessionFormDialog({
             : !watchedSessions.some((session) => session.isActive) && form.formState.submitCount > 0
               ? "Please schedule at least one day."
               : undefined
+
+        // Force set values for doctors if they are missing to ensure validation passes
+        useEffect(() => {
+          if (isDoctor && profile?._id && !form.getValues("doctorId")) {
+            form.setValue("doctorId", profile._id, { shouldValidate: true })
+          }
+          if (isDoctor && assignedClinicId && !form.getValues("clinicId")) {
+            form.setValue("clinicId", assignedClinicId, { shouldValidate: true })
+          }
+        }, [isDoctor, profile?._id, assignedClinicId, form])
 
         function updateDay(index: number, updates: Partial<DoctorSessionDayFormValue>) {
           const current = form.getValues(`sessions.${index}`)
@@ -464,7 +478,7 @@ export function DoctorSessionFormDialog({
 
         return (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className={`grid grid-cols-1 gap-6 ${isDoctor ? "" : "md:grid-cols-2"}`}>
               <FormField
                 control={form.control}
                 name="clinicId"
@@ -501,33 +515,35 @@ export function DoctorSessionFormDialog({
                 control={form.control}
                 name="doctorId"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                     <FormLabel className="mb-2">Doctor</FormLabel>
-                    {mode === "edit" || isDoctor ? (
-                      <div className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-muted/50 px-3 py-2 text-sm text-muted-foreground opacity-70">
-                        {isDoctor && profile 
-                          ? `${profile.firstName} ${profile.lastName}`.trim()
-                          : doctorsOptions.find((d) => d._id === field.value)
+                  isDoctor ? (
+                    <input type="hidden" {...field} />
+                  ) : (
+                    <FormItem className="flex flex-col">
+                      <FormLabel className="mb-2">Doctor</FormLabel>
+                      {mode === "edit" ? (
+                        <div className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-muted/50 px-3 py-2 text-sm text-muted-foreground opacity-70">
+                          {doctorsOptions.find((d) => d._id === field.value)
                             ? `${doctorsOptions.find((d) => d._id === field.value)?.firstName} ${doctorsOptions.find((d) => d._id === field.value)?.lastName}`.trim()
                             : "Selected doctor"}
-                      </div>
-                    ) : (
-                      <DataTableInfiniteFilterSelect
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        placeholder={!selectedClinicId ? "Select clinic first" : "Select Doctor"}
-                        options={doctorsOptions.map(d => ({ value: d._id, label: (d as any).fullName || `${d.firstName} ${d.lastName}` }))}
-                        onLoadMore={fetchNextDoctors}
-                        onSearchChange={setDoctorSearch}
-                        hasNextPage={hasNextDoctors}
-                        isFetchingNextPage={isFetchingExtraDoctors}
-                        isLoading={isDoctorsLoading}
-                        disabled={!selectedClinicId}
-                        className="w-full"
-                      />
-                    )}
-                    <FormMessage />
-                  </FormItem>
+                        </div>
+                      ) : (
+                        <DataTableInfiniteFilterSelect
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder={!selectedClinicId ? "Select clinic first" : "Select Doctor"}
+                          options={doctorsOptions.map(d => ({ value: d._id, label: (d as any).fullName || `${d.firstName} ${d.lastName}` }))}
+                          onLoadMore={fetchNextDoctors}
+                          onSearchChange={setDoctorSearch}
+                          hasNextPage={hasNextDoctors}
+                          isFetchingNextPage={isFetchingExtraDoctors}
+                          isLoading={isDoctorsLoading}
+                          disabled={!selectedClinicId}
+                          className="w-full"
+                        />
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )
                 )}
               />
             </div>
@@ -538,12 +554,12 @@ export function DoctorSessionFormDialog({
                 onCheckedChange={(v) => handleToggleAllDays(Boolean(v))}
                 aria-label="Select all days"
               />
-              <div className="flex items-center gap-3 justify-between w-full">
+              <div className="flex items-center gap-3 justify-between w-full sm:flex-row flex-col">
                 <div>
                   <div className="text-sm font-medium">Select all days</div>
                   <div className="text-xs text-muted-foreground">Toggle every weekday schedule at once.</div>
                 </div>
-                 <p className="text-xs text-blue-500 dark:text-amber-500">Note: No breaks scheduled. Click &quot;Add Break&quot; to add one.</p>
+                <p className="text-xs text-blue-500 dark:text-amber-500">Note: No breaks scheduled. Click &quot;Add Break&quot; to add one.</p>
               </div>
             </div>
 
@@ -604,8 +620,8 @@ export function DoctorSessionFormDialog({
                                   onKeyDown={suppressNativeTimePickerKeys}
                                 />
                               </FormControl>
-                            <FormMessage />
-                          </FormItem>
+                              <FormMessage />
+                            </FormItem>
                           )} />
                         </div>
                         <div className="rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-700 dark:bg-sky-900/30 dark:text-sky-200">

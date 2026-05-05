@@ -1,9 +1,116 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { LandingContentSettings, LandingSectionConfig, customizerApi } from '@/services/customizer.service'
+import { useBlogs } from '@/hooks/api/use-blogs'
+import type { BlogPost } from '@/services/blog.service'
+import { getStoredAuthSession } from '@/lib/auth-session'
+
+const LANDING_CACHE_STORAGE_KEY = 'kivicare-landing-cache'
+
+type LandingCacheEnvelope = {
+  scope: string
+  updatedAt: number
+  data: LandingContentSettings
+}
+
+const LANDING_SCOPE_SEPARATOR = ':'
+
+function getLandingCacheScope() {
+  const session = getStoredAuthSession()
+  const demoSessionId = String((session as any)?.demoSessionId || '').trim()
+  const userId = String(session?.user?.id || 'anonymous').trim() || 'anonymous'
+
+  // For demo mode, scope by demo-session only so role switching inside the same
+  // demo session keeps a single shared landing state across roles.
+  if (demoSessionId) {
+    return `demo${LANDING_SCOPE_SEPARATOR}${demoSessionId}`
+  }
+
+  // For normal mode, keep user-scoped isolation.
+  return `user${LANDING_SCOPE_SEPARATOR}${userId}${LANDING_SCOPE_SEPARATOR}global`
+}
+
+function isDemoScope(scope: string) {
+  return scope.startsWith(`demo${LANDING_SCOPE_SEPARATOR}`)
+}
+
+function readLandingCacheEnvelope() {
+  if (typeof window === 'undefined') return null
+  const raw = window.localStorage.getItem(LANDING_CACHE_STORAGE_KEY)
+  if (!raw) return null
+
+  try {
+    const parsed = JSON.parse(raw) as LandingCacheEnvelope | LandingContentSettings
+    if (parsed && typeof parsed === 'object' && 'scope' in parsed) {
+      return parsed as LandingCacheEnvelope
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function readLandingCache() {
+  if (typeof window === 'undefined') return null
+
+  const envelope = readLandingCacheEnvelope()
+  if (envelope?.scope === getLandingCacheScope() && envelope.data && typeof envelope.data === 'object') {
+    return envelope.data
+  }
+
+  // Backward compatibility fallback for old landing-cache payloads.
+  const legacyRaw = window.localStorage.getItem(LANDING_CACHE_STORAGE_KEY)
+  if (!legacyRaw) return null
+  try {
+    const legacy = JSON.parse(legacyRaw)
+    if (legacy && typeof legacy === 'object' && 'scope' in legacy && 'data' in legacy) {
+      return null
+    }
+    return legacy && typeof legacy === 'object' ? legacy as LandingContentSettings : null
+  } catch {
+    return null
+  }
+}
+
+function writeLandingCache(settings: LandingContentSettings) {
+  if (typeof window === 'undefined') return
+
+  // Keep cache lightweight: dynamic blog payload can become very large and
+  // trigger localStorage quota errors on some browsers/environments.
+  const cacheSafeSettings: LandingContentSettings = {
+    ...settings,
+    blog: {
+      ...(settings.blog || DEFAULT_SETTINGS.blog),
+      posts: [],
+    },
+  }
+
+  const envelope: LandingCacheEnvelope = {
+    scope: getLandingCacheScope(),
+    updatedAt: Date.now(),
+    data: cacheSafeSettings,
+  }
+
+  try {
+    window.localStorage.setItem(LANDING_CACHE_STORAGE_KEY, JSON.stringify(envelope))
+  } catch (error) {
+    // Never let cache write failures break rendering/hydration.
+    if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+      clearLandingCache()
+      return
+    }
+    throw error
+  }
+}
+
+function clearLandingCache() {
+  if (typeof window === 'undefined') return
+  window.localStorage.removeItem(LANDING_CACHE_STORAGE_KEY)
+}
 
 export const AVAILABLE_LINKS = [
+  { label: 'None', value: '#' },
   { label: 'Doctor List', value: '/doctor-list' },
   { label: 'Dashboard', value: '/dashboard' },
   { label: 'Clinic List', value: '/clinic-list' },
@@ -18,9 +125,82 @@ export const AVAILABLE_LINKS = [
   { label: 'Latest Blog', value: '#blog' },
   { label: 'F.A.Q', value: '#faq' },
   { label: 'Contact Form', value: '#contact' },
+  { label: 'Request Demo', value: '/demo' },
   { label: 'Sign Up Page', value: '/sign-up' },
   { label: 'Sign In Page', value: '/sign-in' },
+  { label: 'Dashboard', value: '/dashboard' },
+  { label: 'Doctors (Legacy Route)', value: '/doctor' },
+  { label: 'Doctor List', value: '/doctor-list' },
+  { label: 'Clinic List', value: '/clinic-list' },
+  { label: 'Book Appointment', value: '/book-appointment' },
+  { label: 'Features Page', value: '/features' },
+  { label: 'Contact Us on LinkedIn', value: 'https://www.linkedin.com/company/kivicare/' },
 ]
+
+const toComparableLink = (value?: string) => {
+  const normalized = String(value || '').trim()
+  if (!normalized || normalized === '#') return '#'
+  if (/^https?:\/\//i.test(normalized)) {
+    try {
+      const url = new URL(normalized)
+      const path = `${url.pathname || ''}${url.search || ''}${url.hash || ''}` || normalized
+      return path.endsWith('/') && path.length > 1 ? path.slice(0, -1) : path
+    } catch {
+      // Fallback to raw normalization below.
+    }
+  }
+  return normalized.endsWith('/') && normalized.length > 1 ? normalized.slice(0, -1) : normalized
+}
+
+const resolveLinkFromAvailable = (value: unknown, fallbackValue: unknown = '#') => {
+  const current = String(value ?? '').trim()
+  const fallback = String(fallbackValue ?? '#').trim() || '#'
+
+  const matchedCurrent = AVAILABLE_LINKS.find((link) => toComparableLink(link.value) === toComparableLink(current))
+  if (matchedCurrent) return matchedCurrent.value
+
+  const matchedFallback = AVAILABLE_LINKS.find((link) => toComparableLink(link.value) === toComparableLink(fallback))
+  if (matchedFallback) return matchedFallback.value
+
+  return '#'
+}
+
+const normalizeLandingLinks = (settings: LandingContentSettings): LandingContentSettings => {
+  const normalized: LandingContentSettings = { ...settings }
+  const fieldsBySection: Record<string, string[]> = {
+    hero: ['buttonLink', 'button2Link'],
+    about: ['buttonLink', 'button2Link'],
+    cta: ['buttonLink', 'button2Link'],
+    team: ['buttonLink'],
+    faq: ['buttonLink'],
+    header: ['buttonLink', 'button2Link'],
+    features: ['buttonLink', 'button2Link', 'f2ButtonLink', 'f2Button2Link']
+  }
+
+  Object.entries(fieldsBySection).forEach(([sectionKey, fields]) => {
+    const section = (normalized as any)[sectionKey] || {}
+    const defaults = (DEFAULT_SETTINGS as any)[sectionKey] || {}
+    const nextSection = { ...section }
+
+    fields.forEach((field) => {
+      nextSection[field] = resolveLinkFromAvailable(section[field], defaults[field])
+    })
+
+    ; (normalized as any)[sectionKey] = nextSection
+  })
+
+  const headerLogo = String(normalized?.header?.siteLogo || DEFAULT_SETTINGS.header.siteLogo || "").trim()
+  const fallbackLogo = String(DEFAULT_SETTINGS.header.siteLogo || "/logo.png").trim()
+  const syncedLogo = headerLogo || fallbackLogo
+
+  normalized.footer = {
+    ...(normalized.footer || DEFAULT_SETTINGS.footer),
+    siteLogo: syncedLogo,
+  } as any
+
+  return normalized
+}
+
 
 export const DEFAULT_SETTINGS: LandingContentSettings = {
   hero: {
@@ -52,9 +232,9 @@ export const DEFAULT_SETTINGS: LandingContentSettings = {
     heroPoint2Icon: "CalendarCheck2",
     heroPoint3: "Clinic Operations Billing",
     heroPoint3Icon: "Settings2",
-    heroImage: "/dashboard-light.png",
+    heroImage: "/videobanner.png",
     showHeroPlayButton: true,
-    heroVideoLink: "#",
+    heroVideoLink: "https://www.youtube.com/watch?v=_VcHl-lNIbQ",
     heroBackgroundType: 'accent'
   },
   logos: {
@@ -90,7 +270,7 @@ export const DEFAULT_SETTINGS: LandingContentSettings = {
     description: "Connect with the best clinics and hospitals in our ever-growing network. Managed by KiviCare.",
     showButton: true,
     buttonText: "View All Clinics",
-    buttonLink: "/book-appointment",
+    buttonLink: "/clinic-list",
     filter: 'latest',
     limit: 4,
     showButton2: true,
@@ -125,11 +305,11 @@ export const DEFAULT_SETTINGS: LandingContentSettings = {
     ],
     // Style 1 Buttons
     showButton: true,
-    buttonText: "Book a Demo",
-    buttonLink: "https://shadcnstore.com/templates",
+    buttonText: "Try Demo",
+    buttonLink: "/demo",
     showButton2: true,
     button2Text: "Contact Us on LinkedIn",
-    button2Link: "https://discord.com/invite/XEQhPc9a6p",
+    button2Link: "https://www.linkedin.com/company/kivicare/",
     button2Tooltip: "Response within 24 hours",
     // Style 2 Buttons
     f2ShowButton: true,
@@ -137,7 +317,7 @@ export const DEFAULT_SETTINGS: LandingContentSettings = {
     f2ButtonLink: "#",
     f2ShowButton2: true,
     f2Button2Text: "Contact Us on LinkedIn",
-    f2Button2Link: "https://discord.com/invite/XEQhPc9a6p",
+    f2Button2Link: "#",
     f2Button2Tooltip: "Response within 24 hours"
   },
   team: {
@@ -149,7 +329,7 @@ export const DEFAULT_SETTINGS: LandingContentSettings = {
     teamLimit: 8,
     showButton: true,
     buttonText: "View All Doctors",
-    buttonLink: "/doctor",
+    buttonLink: "/doctor-list",
   },
   pricing: { show: false, badge: "Flexible Plans" },
   testimonials: {
@@ -231,10 +411,10 @@ export const DEFAULT_SETTINGS: LandingContentSettings = {
     siteName: "KiviCare",
     menuLinks: [
       { label: "Home", link: "#hero" },
+      { label: "About", link: "#features" },
       { label: "Clinics", link: "#about" },
       { label: "Doctors", link: "#team" },
       { label: "Blog", link: "#blog" },
-      { label: "About", link: "#features" },
       { label: "Contact", link: "#contact" }
     ],
     showButton: true,
@@ -330,6 +510,7 @@ const LandingContentContext = createContext<LandingContentContextType | undefine
 
 export function LandingContentProvider({ children, initialSettings }: { children: React.ReactNode, initialSettings?: any }) {
   const [hydrated, setHydrated] = useState(false)
+  const landingScopeRef = useRef<string>(getLandingCacheScope())
   const [settings, setSettings] = useState<LandingContentSettings>(() => {
     // 1. Start with hardcoded defaults
     const merged = { ...DEFAULT_SETTINGS }
@@ -346,18 +527,31 @@ export function LandingContentProvider({ children, initialSettings }: { children
       })
     }
 
-    return merged
+    return normalizeLandingLinks(merged as LandingContentSettings)
   })
+
+  // Fetch latest blogs dynamically using blogLimit
+  const blogLimit = (settings?.blog?.blogLimit) || 6
+
+  const { data: blogsResponse } = useBlogs(
+    1,
+    blogLimit,
+    {
+      status: "published",
+      sort: "newest"
+    }
+  )
+
+  const latestBlogs = blogsResponse?.data || []
 
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    const localStr = localStorage.getItem('kivicare-landing-cache')
+    const cached = readLandingCache()
 
-    if (localStr) {
+    if (cached) {
       try {
-        const cached = JSON.parse(localStr)
-        if (cached) {
+        if (cached && typeof cached === 'object') {
           setSettings(prev => {
             const merged = { ...prev }
             Object.keys(cached).forEach(key => {
@@ -368,13 +562,13 @@ export function LandingContentProvider({ children, initialSettings }: { children
                 merged[k] = cached[k] as any
               }
             })
-            return merged
+            return normalizeLandingLinks(merged as LandingContentSettings)
           })
         }
       } catch (e) { }
     }
 
-    if (localStr || initialSettings) {
+    if (cached || initialSettings) {
       setHydrated(true)
     }
   }, [initialSettings])
@@ -387,12 +581,45 @@ export function LandingContentProvider({ children, initialSettings }: { children
     }
   }, [initialSettings])
 
+  // Auto-update blog posts when latest blogs are fetched
   useEffect(() => {
+    if (latestBlogs.length > 0) {
+      setSettings(prev => {
+        const newSettings = {
+          ...prev,
+          blog: {
+            ...prev.blog,
+            posts: latestBlogs.map((blog: BlogPost) => ({
+              ...blog,
+              image: blog.image
+            }))
+          }
+        }
+
+        // Save to localStorage
+        const normalizedSettings = normalizeLandingLinks(newSettings as LandingContentSettings)
+        if (typeof window !== 'undefined') {
+          writeLandingCache(normalizedSettings)
+        }
+
+        return normalizedSettings
+      })
+    }
+  }, [latestBlogs])
+
+  useEffect(() => {
+    let isMounted = true
     const hydrate = async () => {
       try {
-        // Fetch fresh content from API in background (Stale-While-Revalidate)
-        const res = await customizerApi.getSettingsPublic()
+        // Use authenticated customizer settings when logged in (includes demo session-scoped logos).
+        // Fallback to public settings for guests.
+        const session = getStoredAuthSession()
+        const res = session?.accessToken
+          ? await customizerApi.getSettings()
+          : await customizerApi.getSettingsPublic()
         const apiContent = res?.landing_content
+
+        if (!isMounted) return
 
         if (apiContent) {
           setSettings(prev => {
@@ -400,30 +627,86 @@ export function LandingContentProvider({ children, initialSettings }: { children
             Object.keys(apiContent).forEach(key => {
               const k = key as keyof LandingContentSettings
               if (apiContent[k] && typeof apiContent[k] === 'object') {
-                merged[k] = { ...prev[k], ...apiContent[k] } as any
+                merged[k] = { ...(prev[k] || DEFAULT_SETTINGS[k]), ...apiContent[k] } as any
               } else {
                 merged[k] = apiContent[k] as any
               }
             })
 
-            localStorage.setItem('kivicare-landing-cache', JSON.stringify(merged))
-            return merged
+            const normalized = normalizeLandingLinks(merged as LandingContentSettings)
+            writeLandingCache(normalized)
+            return normalized
           })
         }
       } catch (e) {
         console.error("Failed to hydrate landing content:", e)
       } finally {
-        setHydrated(true)
+        if (isMounted) {
+          setHydrated(true)
+        }
       }
     }
 
-    hydrate()
+    const handleThemeUpdated = () => {
+      void hydrate()
+    }
+    const handleLandingCustomizerUpdated = () => {
+      void hydrate()
+    }
+    const handleCustomizerUpdated = () => {
+      void hydrate()
+    }
+    const handleAuthSessionChange = () => {
+      const previousScope = landingScopeRef.current
+      const nextScope = getLandingCacheScope()
+      // Ensure demo-local landing edits (hero thumbnail/video URL, etc.) are purged
+      // when the demo session changes or ends.
+      if (isDemoScope(previousScope) && previousScope !== nextScope) {
+        clearLandingCache()
+      }
+      landingScopeRef.current = nextScope
+      void hydrate()
+    }
+    const handleFocus = () => {
+      void hydrate()
+    }
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void hydrate()
+      }
+    }
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === LANDING_CACHE_STORAGE_KEY) {
+        void hydrate()
+      }
+    }
+
+    void hydrate()
+    window.addEventListener('kivicare-theme-updated', handleThemeUpdated)
+    window.addEventListener('kivicare-landing-customizer-updated', handleLandingCustomizerUpdated)
+    window.addEventListener('kivicare-customizer-updated', handleCustomizerUpdated)
+    window.addEventListener('kivicare-auth-session-changed', handleAuthSessionChange)
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('storage', handleStorageChange)
+
+    return () => {
+      isMounted = false
+      window.removeEventListener('kivicare-theme-updated', handleThemeUpdated)
+      window.removeEventListener('kivicare-landing-customizer-updated', handleLandingCustomizerUpdated)
+      window.removeEventListener('kivicare-customizer-updated', handleCustomizerUpdated)
+      window.removeEventListener('kivicare-auth-session-changed', handleAuthSessionChange)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('storage', handleStorageChange)
+    }
   }, [])
 
   const updateSettings = (newSettings: LandingContentSettings) => {
-    setSettings(newSettings)
+    const normalizedSettings = normalizeLandingLinks(newSettings)
+    setSettings(normalizedSettings)
     if (typeof window !== 'undefined') {
-      localStorage.setItem('kivicare-landing-cache', JSON.stringify(newSettings))
+      writeLandingCache(normalizedSettings)
     }
   }
 
@@ -433,10 +716,11 @@ export function LandingContentProvider({ children, initialSettings }: { children
         ...prev,
         [section]: { ...prev[section], ...config }
       }
+      const normalizedSettings = normalizeLandingLinks(newSettings as LandingContentSettings)
       if (typeof window !== 'undefined') {
-        localStorage.setItem('kivicare-landing-cache', JSON.stringify(newSettings))
+        writeLandingCache(normalizedSettings)
       }
-      return newSettings
+      return normalizedSettings
     })
   }
 

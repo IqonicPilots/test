@@ -13,6 +13,7 @@ import { ClinicFormDialog } from "./clinic-form-dialog"
 import { ResendCredentialsDialog } from "@/components/resend-credentials-dialog"
 import type { Clinic } from "@/types/clinic.types"
 import { usePermissions } from "@/hooks/use-permissions"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ClinicViewDialog } from "./clinic-view-dialog"
 
@@ -25,6 +26,7 @@ interface GetColumnsHandlers {
 const SPECIALIZATIONS_MAX_VISIBLE = 2
 
 function SpecializationsOverflowCell({ specs, title }: { specs: string[], title: string }) {
+  const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -54,7 +56,7 @@ function SpecializationsOverflowCell({ specs, title }: { specs: string[], title:
 
   if (specs.length <= SPECIALIZATIONS_MAX_VISIBLE) {
     return (
-      <div className="flex flex-wrap gap-1 items-center hidden lg:flex">
+      <div className="flex flex-wrap gap-1 items-center">
         {specs.map((spec) => (
           <span key={typeof spec === "string" ? spec : (spec as any)._id} className={tagClassName}>
             {typeof spec === "string" ? spec : (spec as any).label || (spec as any).value || (spec as any).name || ""}
@@ -65,29 +67,41 @@ function SpecializationsOverflowCell({ specs, title }: { specs: string[], title:
   }
 
   return (
-    <div className="flex flex-wrap gap-1 items-center hidden lg:flex">
+    <div className="flex flex-wrap gap-1 items-center">
       {visible.map((spec) => (
         <span key={typeof spec === "string" ? spec : (spec as any)._id} className={tagClassName}>
           {typeof spec === "string" ? spec : (spec as any).label || (spec as any).value || (spec as any).name || ""}
         </span>
       ))}
-      <Popover open={open} onOpenChange={setOpen} modal={false}>
+      <Popover open={open} onOpenChange={setOpen} modal={isMobile}>
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="inline-flex items-center rounded px-2.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-500/15 dark:text-gray-400 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-500/25 transition-colors"
-            onMouseEnter={openPopover} 
-            onMouseLeave={scheduleClose}
+            aria-expanded={open}
+            aria-label={`${title}: ${extra} more`}
+            className="inline-flex items-center rounded px-2.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-500/15 dark:text-gray-400 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-500/25 transition-colors touch-manipulation"
+            {...(!isMobile
+              ? {
+                  onMouseEnter: openPopover,
+                  onMouseLeave: scheduleClose,
+                }
+              : undefined)}
           >
             +{extra}
           </button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-56 max-h-48 overflow-y-auto p-3"
-          align="start"
+          className="w-[min(14rem,calc(100vw-1.5rem))] max-h-48 overflow-y-auto p-3 z-50"
+          align={isMobile ? "end" : "start"}
           side="bottom"
-          onMouseEnter={openPopover}
-          onMouseLeave={scheduleClose}
+          sideOffset={isMobile ? 8 : 4}
+          collisionPadding={12}
+          {...(!isMobile
+            ? {
+                onMouseEnter: openPopover,
+                onMouseLeave: scheduleClose,
+              }
+            : undefined)}
         >
           <div className="flex flex-col gap-1.5">
             {specs.slice(SPECIALIZATIONS_MAX_VISIBLE).map((spec) => {

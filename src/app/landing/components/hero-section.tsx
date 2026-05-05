@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowRight, Play, Star, Users, CalendarCheck2, Settings2 } from 'lucide-react'
+import { ArrowRight, Play, Star, Users, CalendarCheck2, Settings2, Sparkles } from 'lucide-react'
 import * as Icons from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +16,93 @@ import { cn } from '@/lib/utils'
 export function HeroSection() {
   const { settings, hydrated } = useLandingContent()
   const { hero } = settings
+  const [isVideoPlaying, setIsVideoPlaying] = React.useState(false)
+  const videoCardRef = React.useRef<HTMLDivElement | null>(null)
+  const defaultVideoSource =
+    (DEFAULT_SETTINGS.hero as any).heroVideoLink ||
+    (DEFAULT_SETTINGS.hero as any).button2Link ||
+    ''
+
+  const normalizeUrl = (url: string) => {
+    if (!url || url === '#') return ''
+    if (url.startsWith('http://') || url.startsWith('https://')) return url
+    return `https://${url}`
+  }
+
+  const toEmbedUrl = (url: string) => {
+    if (!url || url === '#') return ''
+
+    try {
+      const parsed = new URL(normalizeUrl(url))
+      const host = parsed.hostname.replace('www.', '')
+
+      if (host.includes('youtube.com')) {
+        const videoId = parsed.searchParams.get('v')
+        if (videoId) {
+          return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`
+        }
+
+        if (parsed.pathname.startsWith('/shorts/')) {
+          const shortId = parsed.pathname.split('/shorts/')[1]?.split('/')[0]
+          if (shortId) {
+            return `https://www.youtube.com/embed/${shortId}?autoplay=1&rel=0&modestbranding=1`
+          }
+        }
+      }
+
+      if (host.includes('youtu.be')) {
+        const videoId = parsed.pathname.replace('/', '')
+        if (videoId) {
+          return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`
+        }
+      }
+
+      if (host.includes('youtube.com') && parsed.pathname.startsWith('/embed/')) {
+        return `${parsed.origin}${parsed.pathname}${parsed.search ? `${parsed.search}&autoplay=1` : '?autoplay=1'}`
+      }
+    } catch {
+      // Fall back to raw URL when parsing fails.
+    }
+
+    return ''
+  }
+
+  const videoSource =
+    hero.heroVideoLink ||
+    hero.button2Link ||
+    (DEFAULT_SETTINGS.hero as any).heroVideoLink ||
+    (DEFAULT_SETTINGS.hero as any).button2Link ||
+    defaultVideoSource
+
+  const normalizedVideoSource = normalizeUrl(videoSource) || normalizeUrl(defaultVideoSource)
+  const embedVideoUrl = toEmbedUrl(normalizedVideoSource) || toEmbedUrl(defaultVideoSource)
+  const normalizedHeroImage =
+    hero.heroImage === "/dashboard-light.png" || hero.heroImage === "#"
+      ? ""
+      : hero.heroImage
+  const heroPreviewImage =
+    normalizedHeroImage ||
+    (DEFAULT_SETTINGS.hero as any).heroImage ||
+    "/videobanner.png"
+
+  const playDemoVideo = () => {
+    if (embedVideoUrl) {
+      setIsVideoPlaying(true)
+      videoCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+
+    if (normalizedVideoSource && normalizedVideoSource !== '#') {
+      const newTab = window.open(normalizedVideoSource, '_blank', 'noopener,noreferrer')
+      if (!newTab) {
+        window.location.href = normalizedVideoSource
+      }
+    }
+  }
+
+  React.useEffect(() => {
+    setIsVideoPlaying(false)
+  }, [normalizedVideoSource])
 
   if (!hero.show) return null
 
@@ -75,10 +162,10 @@ export function HeroSection() {
                 }}
               >
                 {hero.badgeIcon ? (
-                  React.createElement((Icons as any)[hero.badgeIcon] || Icons.Star, { 
-                    className: cn("mr-2 h-3 w-3", 
+                  React.createElement((Icons as any)[hero.badgeIcon] || Icons.Star, {
+                    className: cn("mr-2 h-3 w-3",
                       (hero.badgeIcon === 'Star' || !hero.badgeIcon) ? "text-yellow-500 fill-yellow-500" : "fill-primary"
-                    ) 
+                    )
                   })
                 ) : (
                   <Star className="mr-2 h-3 w-3 text-yellow-500 fill-yellow-500" />
@@ -106,28 +193,42 @@ export function HeroSection() {
           {/* CTA Buttons */}
           <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
             {hero.showButton && (
-              <Button size="lg" className="text-base cursor-pointer" asChild>
-                <Link href={hero.buttonLink || "/sign-up"}>
+              <Button size="lg" className="text-base cursor-pointer shadow-lg hover:shadow-primary/20 transition-all" asChild>
+                <Link href={hero.buttonLink || "/demo"}>
+                  {(hero.buttonIconPosition || DEFAULT_SETTINGS.hero.buttonIconPosition || "right") === "left" && (
+                    hero.buttonIcon
+                      ? React.createElement((Icons as any)[hero.buttonIcon] || ArrowRight, { className: "mr-2 h-4 w-4" })
+                      : <ArrowRight className="mr-2 h-4 w-4" />
+                  )}
                   {hero.buttonText || "Get Started Free"}
-                  {hero.buttonIcon ? (
-                    React.createElement((Icons as any)[hero.buttonIcon] || ArrowRight, { className: "ml-2 h-4 w-4" })
-                  ) : (
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                  {(hero.buttonIconPosition || DEFAULT_SETTINGS.hero.buttonIconPosition || "right") !== "left" && (
+                    hero.buttonIcon
+                      ? React.createElement((Icons as any)[hero.buttonIcon] || ArrowRight, { className: "ml-2 h-4 w-4" })
+                      : <ArrowRight className="ml-2 h-4 w-4" />
                   )}
                 </Link>
               </Button>
             )}
 
             {hero.showButton2 && (
-              <Button variant="outline" size="lg" className="text-base cursor-pointer" asChild>
-                <Link href={hero.button2Link || "#"}>
-                  {hero.button2Icon ? (
-                    React.createElement((Icons as any)[hero.button2Icon] || Play, { className: "mr-2 h-4 w-4" })
-                  ) : (
-                    <Play className="mr-2 h-4 w-4" />
+              <Button
+                variant="outline"
+                size="lg"
+                type="button"
+                className="text-base cursor-pointer"
+                onClick={playDemoVideo}
+              >
+                  {(hero.button2IconPosition || DEFAULT_SETTINGS.hero.button2IconPosition || "right") === "left" && (
+                    hero.button2Icon
+                      ? React.createElement((Icons as any)[hero.button2Icon] || Sparkles, { className: "mr-2 h-4 w-4" })
+                      : <Sparkles className="mr-2 h-4 w-4" />
                   )}
                   {hero.button2Text || "Watch Demo"}
-                </Link>
+                  {(hero.button2IconPosition || DEFAULT_SETTINGS.hero.button2IconPosition || "right") !== "left" && (
+                    hero.button2Icon
+                      ? React.createElement((Icons as any)[hero.button2Icon] || Sparkles, { className: "ml-2 h-4 w-4" })
+                      : <Sparkles className="ml-2 h-4 w-4" />
+                  )}
               </Button>
             )}
           </div>
@@ -159,42 +260,51 @@ export function HeroSection() {
             {/* Top background glow effect - positioned above the image */}
             <div className="absolute top-2 lg:-top-8 left-1/2 transform -translate-x-1/2 w-[90%] mx-auto h-24 lg:h-80 bg-primary/50 rounded-full blur-3xl"></div>
 
-            <div className="relative rounded-xl border bg-card shadow-2xl">
-              {/* Common dashboard image (no dark mode as per user request) */}
-              <Image
-                src={hero.heroImage || "/dashboard-light.png"}
-                alt="Dashboard Preview"
-                width={1200}
-                height={800}
-                className="w-full rounded-xl object-cover"
-                priority
-              />
+            <div ref={videoCardRef} className="relative rounded-xl border bg-card shadow-2xl">
+              <div className="relative aspect-[2/1] w-full overflow-hidden rounded-xl">
+                {isVideoPlaying && embedVideoUrl ? (
+                  <iframe
+                    src={embedVideoUrl}
+                    title="KiviCare demo video"
+                    className="absolute inset-0 h-full w-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allowFullScreen
+                  />
+                ) : (
+                  <>
+                    {/* Common dashboard image (no dark mode as per user request) */}
+                    <Image
+                      src={heroPreviewImage}
+                      alt="Dashboard Preview"
+                      fill
+                      className="object-cover"
+                      priority
+                    />
 
-              {/* Bottom fade effect - gradient overlay that fades the image to background */}
-              <div
-                className="absolute bottom-0 left-0 w-full h-32 md:h-40 lg:h-48 bg-gradient-to-b rounded-b-xl"
-                style={{ backgroundImage: `linear-gradient(to bottom, transparent, ${hero.sectionBgColor || 'var(--background)'})` }}
-              ></div>
+                    {/* Bottom fade effect - gradient overlay that fades the image to background */}
+                    <div
+                      className="absolute bottom-0 left-0 w-full h-32 md:h-40 lg:h-48 bg-gradient-to-b rounded-b-xl"
+                      style={{ backgroundImage: `linear-gradient(to bottom, transparent, ${hero.sectionBgColor || 'var(--background)'})` }}
+                    ></div>
 
-              {/* Overlay play button for demo */}
-              {(hero.showHeroPlayButton !== false) && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Button
-                    size="lg"
-                    className="rounded-full h-16 w-16 p-0 cursor-pointer hover:scale-105 transition-transform"
-                    asChild
-                  >
-                    <a
-                      href={hero.heroVideoLink || (DEFAULT_SETTINGS.hero as any).heroVideoLink || "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label="Watch demo video"
-                    >
-                      <Play className="h-6 w-6 fill-current" />
-                    </a>
-                  </Button>
-                </div>
-              )}
+                    {/* Overlay play button for demo */}
+                    {(hero.showHeroPlayButton !== false) && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Button
+                          type="button"
+                          size="lg"
+                          className="rounded-full h-16 w-16 p-0 cursor-pointer hover:scale-105 transition-transform"
+                          onClick={playDemoVideo}
+                          aria-label="Play demo video"
+                        >
+                          <Play className="h-6 w-6 fill-current" />
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

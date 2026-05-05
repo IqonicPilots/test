@@ -5,6 +5,7 @@
 
 @theme inline {
   --font-sans: var(--font-inter);
+  --font-sora: var(--font-sora);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -365,4 +366,23 @@ input[type=number] {
 
 .blog-editor-content :is(ul, ol) li::marker {
   color: var(--muted-foreground);
+}
+
+/* landing-2 Testimonials: hide native horizontal scrollbar (incl. Win Chrome arrows) while drag-scroll works */
+.testimonials-scroller {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.testimonials-scroller::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+.testimonials-scroller::-webkit-scrollbar-thumb,
+.testimonials-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+.testimonials-scroller::-webkit-scrollbar-button {
+  width: 0;
+  height: 0;
 }

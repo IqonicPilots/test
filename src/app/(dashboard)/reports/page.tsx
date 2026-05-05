@@ -44,7 +44,7 @@ export default function ReportsPage() {
   const isClinicAdmin = role === "clinic_admin"
 
   const { data: profile } = useProfile()
-  const { currencyPrefix } = useCurrencyFormatter(true)
+  const { formatCurrencyCompact } = useCurrencyFormatter(true)
 
   const currentYear = new Date().getFullYear()
   const [filters, setFilters] = useState({
@@ -219,8 +219,6 @@ export default function ReportsPage() {
     { value: 11, label: "November" },
     { value: 12, label: "December" },
   ]
-
-  const formatCompactSimple = (v: number) => `${currencyPrefix}${Number(v).toLocaleString()}`
 
   const chartConfig = {
     totalRevenue: { label: "Revenue", color: "var(--primary)" },
@@ -519,8 +517,8 @@ export default function ReportsPage() {
                               </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border/50" />
-                            <XAxis dataKey="monthLabel" axisLine={false} tickLine={false} fontSize={12} tickMargin={12} className="fill-muted-foreground" />
-                            <YAxis axisLine={false} tickLine={false} fontSize={11} tickFormatter={(v) => formatCompactSimple(v)} className="fill-muted-foreground" />
+                            <XAxis dataKey="monthLabel" axisLine={false} tickLine={true} tickMargin={10} className="text-xs" tick={{ fontSize: 12, fill: "var(--foreground)" }} />
+                            <YAxis axisLine={false} tickLine={true} tickMargin={5} className="text-xs" tick={{ fontSize: 12, fill: "var(--foreground)" }} tickFormatter={(v) => formatCurrencyCompact(v)} />
                             <ChartTooltip
                               cursor={{ stroke: 'var(--border)', strokeWidth: 1 }}
                               content={
@@ -530,7 +528,7 @@ export default function ReportsPage() {
                                     <div className="flex flex-1 justify-between gap-4 leading-none items-center py-0.5">
                                       <span className="text-muted-foreground">{String(name)}</span>
                                       <span className="text-foreground font-mono font-bold tabular-nums">
-                                        {name === 'Revenue' ? formatCompactSimple(Number(value || 0)) : value}
+                                        {name === 'Revenue' ? formatCurrencyCompact(Number(value || 0)) : value}
                                       </span>
                                     </div>
                                   )}
@@ -731,7 +729,7 @@ export default function ReportsPage() {
                             <BarChart data={processedClinicData} margin={{ top: 20, right: 10, left: 10, bottom: 0 }}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border/50" />
                               <XAxis dataKey="clinicName" axisLine={false} tickLine={false} fontSize={12} tickMargin={10} />
-                              <YAxis axisLine={false} tickLine={false} fontSize={12} tickFormatter={(v) => formatCompactSimple(v)} />
+                              <YAxis axisLine={false} tickLine={false} fontSize={12} tickFormatter={(v) => formatCurrencyCompact(v)} />
                               <ChartTooltip
                                 content={
                                   <ChartTooltipContent
@@ -739,7 +737,7 @@ export default function ReportsPage() {
                                       <div className="flex flex-1 justify-between gap-4 leading-none">
                                         <span className="text-muted-foreground">{String(name)}</span>
                                         <span className="text-foreground font-mono font-medium">
-                                          {typeof value === 'number' && name === 'Revenue' ? formatCompactSimple(value) : value}
+                                          {typeof value === 'number' && name === 'Revenue' ? formatCurrencyCompact(value) : value}
                                         </span>
                                       </div>
                                     )}
@@ -788,7 +786,7 @@ export default function ReportsPage() {
                           <ChartContainer config={chartConfig} className="h-full w-full">
                             <BarChart data={processedDoctorData} layout="vertical" margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                               <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-border/50" />
-                              <XAxis type="number" axisLine={false} tickLine={false} fontSize={12} tickFormatter={(v) => formatCompactSimple(v)} />
+                              <XAxis type="number" axisLine={false} tickLine={false} fontSize={12} tickFormatter={(v) => formatCurrencyCompact(v)} />
                               <YAxis dataKey="doctorName" type="category" axisLine={false} tickLine={false} fontSize={12} width={150} />
                               <ChartTooltip
                                 content={
@@ -797,7 +795,7 @@ export default function ReportsPage() {
                                       <div className="flex flex-1 justify-between gap-4 leading-none">
                                         <span className="text-muted-foreground">Revenue</span>
                                         <span className="text-foreground font-mono font-medium">
-                                          {formatCompactSimple(Number(value || 0))}
+                                          {formatCurrencyCompact(Number(value || 0))}
                                         </span>
                                       </div>
                                     )}
@@ -845,7 +843,7 @@ export default function ReportsPage() {
                             <BarChart data={processedServiceData} margin={{ top: 20, right: 10, left: 10, bottom: 0 }}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border/50" />
                               <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} tickMargin={10} />
-                              <YAxis axisLine={false} tickLine={false} fontSize={12} tickFormatter={(v) => formatCompactSimple(v)} />
+                              <YAxis axisLine={false} tickLine={false} fontSize={12} tickFormatter={(v) => formatCurrencyCompact(v)} />
                               <ChartTooltip
                                 content={
                                   <ChartTooltipContent
@@ -853,7 +851,7 @@ export default function ReportsPage() {
                                       <div className="flex flex-1 justify-between gap-4 leading-none">
                                         <span className="text-muted-foreground">{String(name)}</span>
                                         <span className="text-foreground font-mono font-bold tabular-nums">
-                                          {name === 'Revenue' ? formatCompactSimple(Number(value || 0)) : value}
+                                          {name === 'Revenue' ? formatCurrencyCompact(Number(value || 0)) : value}
                                         </span>
                                       </div>
                                     )}

@@ -58,9 +58,9 @@ function getReferenceIds(value: unknown) {
   return id ? [id] : []
 }
 
-export function ServiceFormDialog({ 
-  onServiceAdded, 
-  serviceToEdit, 
+export function ServiceFormDialog({
+  onServiceAdded,
+  serviceToEdit,
   trigger,
   clinics = [],
   allClinics = [],
@@ -76,14 +76,27 @@ export function ServiceFormDialog({
   const isEditing = !!serviceToEdit
   const createServiceMutation = useCreateService()
   const editServiceMutation = useEditService()
-  
-  const [selectedClinicIds, setSelectedClinicIds] = useState<string[]>(getReferenceIds(serviceToEdit?.clinic))
+
+  const [selectedClinicIds, setSelectedClinicIds] = useState<string[]>(() => {
+    const ids = getReferenceIds(serviceToEdit?.clinic)
+    if (ids.length === 0 && clinics.length === 1) {
+      return [clinics[0]._id]
+    }
+    return ids
+  })
   const [localDoctorSearch, setLocalDoctorSearch] = useState("")
   const [debouncedDoctorSearch, setDebouncedDoctorSearch] = useState("")
 
   useEffect(() => {
-    setSelectedClinicIds(getReferenceIds(serviceToEdit?.clinic))
-  }, [serviceToEdit])
+    const rawIds = getReferenceIds(serviceToEdit?.clinic)
+    const nextIds = (rawIds.length === 0 && clinics.length === 1) ? [clinics[0]._id] : rawIds
+
+    setSelectedClinicIds((current) => {
+      const isSame = current.length === nextIds.length &&
+        current.every((id, index) => id === nextIds[index])
+      return isSame ? current : nextIds
+    })
+  }, [serviceToEdit, clinics])
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedDoctorSearch(localDoctorSearch.trim()), 350)
@@ -107,7 +120,15 @@ export function ServiceFormDialog({
     return dialogDoctorsData.pages.flatMap((page: any) => page.data || [])
   }, [dialogDoctorsData])
 
-  const { data: categories = [], isLoading: loadingCategories } = useListingData("service_type", true)
+  const { data: serviceTypes = [], isLoading: loadingServiceTypes } = useListingData("service_type", true)
+  const { data: specialtiesData = [], isLoading: loadingSpecialties } = useListingData("specialties", true)
+
+  const categories = useMemo(() => {
+    const combined = [...serviceTypes, ...specialtiesData]
+    return Array.from(new Map(combined.map(item => [item._id, item])).values())
+  }, [serviceTypes, specialtiesData])
+
+  const loadingCategories = loadingServiceTypes || loadingSpecialties
 
   const formatMinutesToTime = (totalMinutes: number | string) => {
     const minutes = Number(totalMinutes) || 0
@@ -141,33 +162,25 @@ export function ServiceFormDialog({
     onServiceAdded?.()
   }
 
-  const fields: FormFieldConfig[] = [
-    { 
-      name: "serviceImage", 
-      label: "Service", 
-      type: "image-upload", 
-      required: false, 
-      gridClass: "col-span-2", 
-      section: "Personal Information", 
+  const allFields: FormFieldConfig[] = [
+    {
+      name: "serviceImage",
+      label: "Service",
+      type: "image-upload",
+      required: false,
+      gridClass: "col-span-2",
+      section: "Personal Information",
       accept: "image/jpeg,image/gif,image/png",
       imageUploadMode: "avatar-click"
     },
-    { 
-      name: "category", 
-      label: "Service Type", 
-      type: "select", 
-      required: true, 
-      section: "Personal Information", 
+    {
+      name: "category",
+      label: "Service Type",
+      type: "select",
+      required: true,
+      section: "Personal Information",
       gridClass: "col-span-1",
-       options: categories
-        .filter(c => {
-          if (role === "doctor" && profile?.meta?.specialties) {
-             const specialties = profile.meta.specialties.map((s: any) => typeof s === 'string' ? s : s._id)
-             return specialties.includes(c._id)
-          }
-          return true
-        })
-        .map(c => ({ value: c._id, label: c.label })),
+      options: categories.map(c => ({ value: c._id, label: c.label })),
       placeholder: loadingCategories ? "Loading Service Types..." : "Select Service Type",
     },
     { name: "name", label: "Service Name", type: "text", required: true, section: "Personal Information" },
@@ -214,11 +227,11 @@ export function ServiceFormDialog({
       hasNextPage: hasNextDialogDoctors,
       isFetchingNextPage: isFetchingNextDialogDoctors,
       isLoading: isDialogDoctorsLoading,
-      placeholder: isDialogDoctorsLoading 
-        ? "Loading doctors..." 
+      placeholder: isDialogDoctorsLoading
+        ? "Loading doctors..."
         : (selectedClinicIds.length > 0
-            ? (dialogDoctors.length > 0 ? "Select Doctor" : "No doctors found for the selected clinics") 
-            : "Select clinic first"),
+          ? (dialogDoctors.length > 0 ? "Select Doctor" : "No doctors found for the selected clinics")
+          : "Select clinic first"),
       selectedOptions: (watchedValues: any) => {
         const ids = Array.isArray(watchedValues.doctor) ? watchedValues.doctor : []
         if (ids.length === 0) return []
@@ -237,12 +250,12 @@ export function ServiceFormDialog({
         })
       }
     },
-    { 
-      name: "telemed_service", 
-      label: "Telemed Service", 
-      type: "select", 
-      required: true, 
-      section: "Personal Information", 
+    {
+      name: "telemed_service",
+      label: "Telemed Service",
+      type: "select",
+      required: true,
+      section: "Personal Information",
       gridClass: "col-span-1",
       options: [
         { value: "yes", label: "Yes" },
@@ -263,26 +276,34 @@ export function ServiceFormDialog({
     },
   ]
 
-  const defaultValues = useMemo(() => ({
-    serviceImage: serviceToEdit?.serviceImage || "",
-    name: serviceToEdit?.name || "",
-    clinic: getReferenceIds(serviceToEdit?.clinic),
-    doctor: getReferenceIds(serviceToEdit?.doctor),
-    charges: String(serviceToEdit?.charges || ""),
-    duration: serviceToEdit?.duration ? formatMinutesToTime(serviceToEdit.duration) : "00:00",
-    telemed_service: serviceToEdit?.telemed_service ? "yes" : "no",
-    category: getReferenceId(serviceToEdit?.category),
-    status: serviceToEdit?.isActive === false ? "Inactive" : "Active",
-    ...(role === "doctor" && profile && !isEditing ? { doctor: [profile._id] } : {}),
-    ...(role === "clinic_admin" && !isEditing && clinics.length === 1 ? { clinic: [clinics[0]._id] } : {}),
-    ...(role === "doctor" && !isEditing && clinics.length === 1 ? { clinic: [clinics[0]._id] } : {}),
-  }), [serviceToEdit, role, profile, isEditing, clinics])
+  const fields = allFields.filter(field => {
+    if (field.name === "doctor" && role === "doctor") return false
+    if (field.name === "clinic" && clinics.length === 1) return false
+    return true
+  })
+
+  const defaultValues = useMemo(() => {
+    const doctorIds = getReferenceIds(serviceToEdit?.doctor)
+    const clinicIds = getReferenceIds(serviceToEdit?.clinic)
+
+    return {
+      serviceImage: serviceToEdit?.serviceImage || "",
+      name: serviceToEdit?.name || "",
+      clinic: clinicIds.length > 0 ? clinicIds : (clinics.length === 1 ? [clinics[0]._id] : []),
+      doctor: doctorIds.length > 0 ? doctorIds : (role === "doctor" && profile ? [profile._id] : []),
+      charges: String(serviceToEdit?.charges || ""),
+      duration: serviceToEdit?.duration ? formatMinutesToTime(serviceToEdit.duration) : "00:00",
+      telemed_service: serviceToEdit?.telemed_service ? "yes" : "no",
+      category: getReferenceId(serviceToEdit?.category),
+      status: serviceToEdit?.isActive === false ? "Inactive" : "Active",
+    }
+  }, [serviceToEdit, role, profile, clinics])
 
   const onValuesChange = useCallback((values: any) => {
     const nextClinicIds = Array.isArray(values.clinic) ? values.clinic : []
     setSelectedClinicIds((currentClinicIds) =>
       currentClinicIds.length === nextClinicIds.length &&
-      currentClinicIds.every((clinicId, index) => clinicId === nextClinicIds[index])
+        currentClinicIds.every((clinicId, index) => clinicId === nextClinicIds[index])
         ? currentClinicIds
         : nextClinicIds
     )

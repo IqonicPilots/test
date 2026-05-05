@@ -88,10 +88,6 @@ export function TopProducts() {
     )
   }
 
-  if (!rows.length) {
-    return null
-  }
-
   return (
     <Card className="h-auto md:h-[500px]">
       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -155,11 +151,15 @@ export function TopProducts() {
                     {growthLabel}
                   </Badge>
                 </div>
-
               </div>
             </div>
           </div>
         )})}
+        {rows.length === 0 && (
+          <div className="flex items-center justify-center p-3 rounded-lg gap-2 h-[380px]">
+            <p className="text-sm text-muted-foreground">No data available</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

@@ -135,7 +135,7 @@ export function DataTableToolbar<TData>({
                   "Gender"
                 ]}
                 notes={[
-                  "Clinic Name must match an existing clinic name exacty.",
+                  "Clinic Name must match an existing clinic name exactly.",
                   "Status should be 'Active' or 'Inactive'.",
                   "Gender should be 'Male', 'Female', or 'Other'."
                 ]}

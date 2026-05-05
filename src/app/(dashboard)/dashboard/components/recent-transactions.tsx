@@ -206,7 +206,7 @@ export function RecentTransactions() {
           </div>
         )})}
         {transactions.length === 0 && (
-          <div className="flex items-center justify-center h-[400px]">
+          <div className="flex items-center justify-center h-[380px]">
             <p className="text-sm text-muted-foreground">No transactions found</p>
           </div>
         )}

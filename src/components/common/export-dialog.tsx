@@ -160,7 +160,7 @@ export function ExportDialog<T = Record<string, unknown>>({
             <FileSpreadsheet className="h-5 w-5 text-primary" />
             {title}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-start">
             {description ?? defaultDescription}
           </DialogDescription>
         </DialogHeader>

@@ -172,26 +172,18 @@ export function AppointmentFormDialog({ onAddAppointment, onUpdateAppointment, a
   const services = useMemo(() => {
     if (!selectedClinic || !selectedDoctor) return []
     return allServices.filter((s: Service) => {
-      // Check clinic
-      const clinicArr = Array.isArray(s.clinic) ? s.clinic : [s.clinic]
-      const hasClinic = clinicArr.some((c: string | { _id?: string }) => {
-        const id = (c && typeof c === 'object') ? (c as { _id?: string })._id : c
-        return id === selectedClinic
-      })
+      // Check clinic - allow if no specific clinics assigned (general) or if it matches
+      const clinicArr = Array.isArray(s.clinic) ? s.clinic : (s.clinic ? [s.clinic] : [])
+      const hasClinic = clinicArr.length === 0 || clinicArr.some((c: any) => getReferenceId(c) === selectedClinic)
 
-      // Check doctor
-      const doctorArr = Array.isArray(s.doctor) ? s.doctor : [s.doctor]
-      const hasDoctor = doctorArr.some((d: string | { _id?: string }) => {
-        const id = (d && typeof d === 'object') ? (d as { _id?: string })._id : d
-        return id === selectedDoctor
-      })
+      // Check doctor - allow if no specific doctors assigned (general) or if it matches
+      const doctorArr = Array.isArray(s.doctor) ? s.doctor : (s.doctor ? [s.doctor] : [])
+      const hasDoctor = doctorArr.length === 0 || doctorArr.some((d: any) => getReferenceId(d) === selectedDoctor)
 
-      // Hide telemed services if no active integration
-      if (s.telemed_service && !isTelemedEnabled) return false
-
+      // We show all services including telemed regardless of integration status
       return hasClinic && hasDoctor
     })
-  }, [allServices, selectedClinic, selectedDoctor, isTelemedEnabled])
+  }, [allServices, selectedClinic, selectedDoctor])
 
   const slotOptions = useMemo(() => {
     let slots = slotData?.availableSlots || []

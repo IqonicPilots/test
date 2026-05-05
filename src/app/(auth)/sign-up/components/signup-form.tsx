@@ -367,7 +367,7 @@ export function SignupForm({
             name="terms"
             render={({ field }) => (
               <FormItem>
-                <div className="flex items-start space-x-2">
+                <div className="flex items-start gap-2">
                   <FormControl>
                     <Checkbox
                       checked={field.value}
@@ -375,14 +375,14 @@ export function SignupForm({
                       disabled={register.isPending}
                     />
                   </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel className="text-sm font-normal">
+                  <div className="min-w-0 space-y-1">
+                    <FormLabel className="text-xs sm:text-sm font-normal leading-5">
                       I agree to the{" "}
-                      <a href="#" className="underline underline-offset-4 hover:text-primary">
+                      <a href="#" className="inline-block whitespace-nowrap underline underline-offset-4 hover:text-primary">
                         Terms of Service
                       </a>{" "}
                       and{" "}
-                      <a href="#" className="underline underline-offset-4 hover:text-primary">
+                      <a href="#" className="inline-block whitespace-nowrap underline underline-offset-4 hover:text-primary">
                         Privacy Policy
                       </a>
                     </FormLabel>

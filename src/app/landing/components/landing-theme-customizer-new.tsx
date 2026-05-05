@@ -19,7 +19,7 @@ import { useLandingContent, AVAILABLE_LINKS, DEFAULT_SETTINGS } from '../../../c
 import { useClinics } from '@/hooks/api/use-clinics'
 import { toast } from 'sonner'
 import { colorThemes, tweakcnThemes } from '@/config/theme-data'
-import { radiusOptions, customColorGroups } from '@/config/theme-customizer-constants'
+import { radiusOptions, baseColors } from '@/config/theme-customizer-constants'
 import { ColorPicker } from '@/components/color-picker'
 import { ImportModal } from '@/components/theme-customizer/import-modal'
 import { Input } from '@/components/ui/input'
@@ -100,12 +100,43 @@ function IconPicker({
     "Clock", "Info", "ArrowRight", "ChevronRight", "Search", "Settings",
     "Briefcase", "MessageSquare", "Phone", "Globe", "CreditCard", "ClipboardList",
     "Video", "Pill", "Syringe", "CalendarCheck2", "Settings2", "HeartPulse", "Users2", "BarChart3",
-    "Facebook", "Twitter", "Instagram", "Linkedin"
+    "Facebook", "Twitter", "Instagram", "Linkedin",
+    "Package", "PlayCircle", "CirclePlay"
   ]
 
-  const filteredIcons = COMMON_ICONS.filter(name =>
+  const normalizedSearch = search.trim().toLowerCase()
+  const allLucideIconNames = React.useMemo(
+    () =>
+      Object.keys(Icons).filter((key) => {
+        const candidate = (Icons as any)[key]
+        return /^[A-Z]/.test(key) && typeof candidate === "function"
+      }),
+    []
+  )
+
+  const iconOptions = React.useMemo(() => {
+    return Array.from(new Set([...COMMON_ICONS, ...allLucideIconNames]))
+  }, [allLucideIconNames])
+
+  const resolveIconName = React.useCallback(
+    (rawValue: string) => {
+      const normalized = rawValue.trim().toLowerCase()
+      if (!normalized) return ""
+      const exact = iconOptions.find((name) => name.toLowerCase() === normalized)
+      if (exact) return exact
+      const compact = normalized.replace(/[\s_-]+/g, "")
+      return iconOptions.find((name) => name.toLowerCase().replace(/[\s_-]+/g, "") === compact) || ""
+    },
+    [iconOptions]
+  )
+
+  const filteredIcons = iconOptions.filter(name =>
     name.toLowerCase().includes(search.toLowerCase())
   )
+
+  React.useEffect(() => {
+    setSearch(value || "")
+  }, [value])
 
   return (
     <div className="space-y-2 p-2 bg-muted/20 rounded-md border border-border/50">
@@ -115,9 +146,18 @@ function IconPicker({
             value={search}
             onChange={(e) => {
               setSearch(e.target.value)
-              // Allow manual typing by updating parent if icon exists
-              if ((Icons as any)[e.target.value]) {
-                onChange(e.target.value)
+              const resolvedName = resolveIconName(e.target.value)
+              if (resolvedName) {
+                onChange(resolvedName)
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return
+              const resolvedName = resolveIconName(search)
+              if (resolvedName) {
+                e.preventDefault()
+                onChange(resolvedName)
+                setSearch(resolvedName)
               }
             }}
             placeholder={placeholder}
@@ -163,7 +203,9 @@ function IconPicker({
         ))}
         {filteredIcons.length === 0 && search && (
           <div className="col-span-6 py-4 text-center text-[10px] text-muted-foreground italic">
-            Press enter to use "{search}"
+            {resolveIconName(search)
+              ? `Press enter to use "${resolveIconName(search)}"`
+              : "No matching icon found"}
           </div>
         )}
       </div>
@@ -172,6 +214,7 @@ function IconPicker({
 }
 
 const FOOTER_SOCIAL_PLATFORMS = ["Facebook", "Twitter", "Instagram", "Linkedin", "Whatsapp", "Youtube"]
+const CUSTOM_LINK_VALUE = "__custom__"
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -362,16 +405,230 @@ function SectionCustomizer({
     setBlogLimitInput(String(nextValue))
   }
 
+  const toComparableLink = (value?: string) => {
+    const normalized = String(value || '').trim()
+    if (!normalized || normalized === '#') return '#'
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, onSuccess: (url: string) => void) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        onSuccess(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    // Normalize absolute URLs to pathname so "/features" matches
+    // values like "https://example.com/features".
+    if (/^https?:\/\//i.test(normalized)) {
+      try {
+        const url = new URL(normalized)
+        const path = `${url.pathname || ''}${url.search || ''}${url.hash || ''}` || normalized
+        return path.endsWith('/') && path.length > 1 ? path.slice(0, -1) : path
+      } catch {
+        // Fall through to raw normalization if URL parsing fails.
+      }
     }
+
+    return normalized.endsWith('/') && normalized.length > 1 ? normalized.slice(0, -1) : normalized
+  }
+
+  const resolveSelectValue = (value?: string, fallbackValue?: string, preferFallbackOnNone = false) => {
+    const normalized = String(value || '').trim()
+    if (!normalized) return '#'
+    if (normalized === '#') {
+      if (preferFallbackOnNone) {
+        const fallbackNormalized = String(fallbackValue || '').trim()
+        if (fallbackNormalized) {
+          const fallbackComparable = toComparableLink(fallbackNormalized)
+          const fallbackMatch = AVAILABLE_LINKS.find((link) => toComparableLink(link.value) === fallbackComparable)
+          if (fallbackMatch) return fallbackMatch.value
+        }
+      }
+      return '#'
+    }
+
+    const comparable = toComparableLink(normalized)
+    const matched = AVAILABLE_LINKS.find((link) => toComparableLink(link.value) === comparable)
+    if (matched) return matched.value
+
+    // If current value is invalid/unknown, try section default link before "None".
+    const fallbackNormalized = String(fallbackValue || '').trim()
+    if (fallbackNormalized) {
+      const fallbackComparable = toComparableLink(fallbackNormalized)
+      const fallbackMatch = AVAILABLE_LINKS.find((link) => toComparableLink(link.value) === fallbackComparable)
+      if (fallbackMatch) return fallbackMatch.value
+    }
+
+    return '#'
+  }
+
+  const renderLinkOptions = () => {
+    const options = [...AVAILABLE_LINKS]
+    const dedupedOptions = options.filter(
+      (link, index, arr) => arr.findIndex((item) => item.value === link.value) === index
+    )
+
+    return dedupedOptions.map((link, index) => (
+      <SelectItem key={`${link.value}-${index}`} value={link.value} className="text-[10px]">
+        {link.label}
+      </SelectItem>
+    ))
+  }
+
+  const getConfiguredBoolean = (field: keyof LandingSectionConfig) => {
+    const value = (config as any)[field]
+    if (typeof value === 'boolean') return value
+    const defaultValue = (DEFAULT_SETTINGS[section] as any)?.[field]
+    return typeof defaultValue === 'boolean' ? defaultValue : false
+  }
+
+  const getConfiguredString = (field: keyof LandingSectionConfig, fallback = '') => {
+    const value = String((config as any)[field] ?? '').trim()
+    if (value) return value
+    const defaultValue = String((DEFAULT_SETTINGS[section] as any)?.[field] ?? '').trim()
+    return defaultValue || fallback
+  }
+
+  const getConfiguredLinkValue = (field: keyof LandingSectionConfig, preferFallbackOnNone = false) => {
+    const currentValue = String((config as any)[field] ?? '').trim()
+    const defaultValue = String((DEFAULT_SETTINGS[section] as any)?.[field] ?? '#').trim()
+    return resolveSelectValue(currentValue, defaultValue, preferFallbackOnNone)
+  }
+
+  const isKnownLink = (value?: string) => {
+    const comparable = toComparableLink(value)
+    return AVAILABLE_LINKS.some((link) => toComparableLink(link.value) === comparable)
+  }
+
+  const normalizeCustomLinkInput = (value: unknown) => {
+    const normalized = String(value ?? '').trim()
+    return normalized === '#' ? '' : normalized
+  }
+
+  const heroButton2LinkValue = String((config as any).button2Link ?? '').trim()
+  const heroVideoLinkValue = String((config as any).heroVideoLink ?? '').trim()
+  const heroSecondaryLinkRaw = normalizeCustomLinkInput(heroButton2LinkValue)
+  const heroVideoLinkRaw = normalizeCustomLinkInput(heroVideoLinkValue)
+  const isHeroDemoExplicitNone =
+    section === 'hero' &&
+    heroButton2LinkValue === '#' &&
+    heroVideoLinkValue === '#'
+  const effectiveHeroDemoLink =
+    isHeroDemoExplicitNone
+      ? ''
+      : (
+        heroSecondaryLinkRaw ||
+        heroVideoLinkRaw ||
+        normalizeCustomLinkInput((DEFAULT_SETTINGS.hero as any).heroVideoLink) ||
+        normalizeCustomLinkInput((DEFAULT_SETTINGS.hero as any).button2Link)
+      )
+  const hasCustomHeroDemoLink =
+    section === 'hero' &&
+    (!!effectiveHeroDemoLink && !isKnownLink(effectiveHeroDemoLink))
+  const heroImageValue = String(config.heroImage || '')
+  const isHeroImageDataUri = heroImageValue.startsWith('data:image/')
+  const [uploadedFileNameByImageSrc, setUploadedFileNameByImageSrc] = React.useState<Record<string, string>>({})
+  const [isCustomHeroDemoLinkMode, setIsCustomHeroDemoLinkMode] = React.useState(
+    section === 'hero' && hasCustomHeroDemoLink
+  )
+  React.useEffect(() => {
+    if (section === 'hero') {
+      setIsCustomHeroDemoLinkMode(hasCustomHeroDemoLink)
+    } else {
+      setIsCustomHeroDemoLinkMode(false)
+    }
+  }, [section, hasCustomHeroDemoLink])
+  const heroSecondarySelectValue =
+    section === 'hero' && (hasCustomHeroDemoLink || isCustomHeroDemoLinkMode)
+      ? CUSTOM_LINK_VALUE
+      : (
+        section === 'hero' && isHeroDemoExplicitNone
+          ? '#'
+          : getConfiguredLinkValue('button2Link')
+      )
+
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, onSuccess: (url: string, fileName: string) => void) => {
+    const input = e.target
+    const file = input.files?.[0]
+    if (!file) {
+      input.value = ''
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file.')
+      input.value = ''
+      return
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image must be 2MB or smaller.')
+      input.value = ''
+      return
+    }
+
+    // Show immediate local preview first (same instant feel as Trusted Partners),
+    // then replace with persistent uploaded URL once server upload succeeds.
+    try {
+      const localPreview = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onerror = () => reject(new Error('Failed to read selected image.'))
+        reader.onloadend = () => {
+          const result = reader.result
+          if (typeof result === 'string' && result.startsWith('data:image/')) {
+            resolve(result)
+          } else {
+            reject(new Error('Invalid image format received.'))
+          }
+        }
+        reader.readAsDataURL(file)
+      })
+      onSuccess(localPreview, file.name)
+    } catch {
+      toast.error('Failed to read selected image.')
+      input.value = ''
+      return
+    }
+
+    try {
+      const uploadedUrl = await customizerApi.uploadFile(file)
+      if (!uploadedUrl) {
+        throw new Error('Invalid upload response')
+      }
+      onSuccess(uploadedUrl, file.name)
+      toast.success('Image uploaded successfully.')
+    } catch {
+      toast.error('Image preview updated, but upload failed. Please try again.')
+    } finally {
+      // Allow selecting the same file again by resetting the input value.
+      input.value = ''
+    }
+  }
+
+  const getImageInputDisplayValue = (value: string) => {
+    if (!value) return ''
+
+    const formatFileName = (rawPath: string) => {
+      const fileName = decodeURIComponent(rawPath.split('/').filter(Boolean).pop() || '')
+      if (!fileName) return value
+      const withoutGeneratedPrefix = fileName.replace(/^\d{10,}-/, '')
+      return `/${withoutGeneratedPrefix || fileName}`
+    }
+
+    if (!value.startsWith('data:image/')) {
+      try {
+        const parsed = value.startsWith('http://') || value.startsWith('https://')
+          ? new URL(value)
+          : null
+        const pathname = parsed ? parsed.pathname : value
+        return formatFileName(pathname)
+      } catch {
+        return formatFileName(value)
+      }
+    }
+
+    const uploadedFileName = uploadedFileNameByImageSrc[value]
+    if (uploadedFileName) {
+      return `/${uploadedFileName}`
+    }
+
+    const mimeMatch = value.match(/^data:(image\/[a-zA-Z0-9.+-]+);/i)
+    const mimeSubtype = mimeMatch?.[1]?.split('/')[1] ?? 'png'
+    const cleanExtension = mimeSubtype.split('+')[0] || 'png'
+    return `/uploaded-image.${cleanExtension}`
   }
 
   const COMMON_ICONS = [
@@ -385,24 +642,22 @@ function SectionCustomizer({
 
 
   // CTA Helpers removed as we use specific fields now
+  const hideSectionToggle = section === "header" || section === "footer"
 
   return (
     <div className="flex items-center gap-2 mb-3">
       <div className="flex-1 border border-border rounded-lg overflow-hidden bg-card">
         <AccordionItem value={section as string} className="border-none">
           <div className="flex items-center hover:bg-muted/50 transition-colors group relative">
-            {section !== 'header' && section !== 'footer' && (
+            {!hideSectionToggle ? (
               <Switch
                 checked={!!config.show}
                 onCheckedChange={(checked) => onUpdate(section, { show: checked })}
                 className="absolute left-4 z-10 scale-90 shrink-0"
                 onClick={(e) => e.stopPropagation()}
               />
-            )}
-            <AccordionTrigger className={cn(
-              "flex-1 py-4 pr-4 hover:no-underline items-center justify-between w-full",
-              (section === 'header' || section === 'footer') ? "pl-4" : "pl-14"
-            )}>
+            ) : null}
+            <AccordionTrigger className={cn("flex-1 py-4 pr-4 hover:no-underline items-center justify-between w-full", hideSectionToggle ? "pl-4" : "pl-14")}>
               <div className="flex items-center gap-3 text-left">
                 <div className="p-1.5 bg-muted rounded-md group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                   <Icon className="h-3.5 w-3.5" />
@@ -467,7 +722,6 @@ function SectionCustomizer({
                           <p className="text-[10px] text-muted-foreground mt-1 px-1">Choose your primary design style.</p>
                         </div>
                       )}
-
                       {section === 'about' && (
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1.5">
@@ -728,7 +982,7 @@ function SectionCustomizer({
                   {section === 'header' && (
                     <div className="space-y-4 pt-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">Action Labels</Label>
-                      <div className="grid grid-cols-1 gap-3">
+                      <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                           <Label className="text-[10px]">Book Appointment Label</Label>
                           <Input value={config.buttonText || (DEFAULT_SETTINGS.header as any).buttonText} onChange={(e) => onUpdate(section, { buttonText: e.target.value })} className="h-8 text-xs font-bold" />
@@ -820,18 +1074,14 @@ function SectionCustomizer({
                                 <div className="space-y-1">
                                   <Label className="text-[10px]">Link</Label>
                                   <Select
-                                    value={config.buttonLink || ""}
+                                    value={getConfiguredLinkValue('buttonLink')}
                                     onValueChange={(value) => onUpdate(section, { buttonLink: value })}
                                   >
                                     <SelectTrigger className="h-8 text-[10px]">
                                       <SelectValue placeholder="Link" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {AVAILABLE_LINKS.map((link) => (
-                                        <SelectItem key={link.value} value={link.value} className="text-[10px]">
-                                          {link.label}
-                                        </SelectItem>
-                                      ))}
+                                      {renderLinkOptions()}
                                     </SelectContent>
                                   </Select>
                                 </div>
@@ -839,9 +1089,24 @@ function SectionCustomizer({
                               <div className="space-y-1">
                                 <Label className="text-[10px] font-semibold text-muted-foreground uppercase">Icon</Label>
                                 <IconPicker
-                                  value={config.buttonIcon || ""}
+                                  value={getConfiguredString('buttonIcon')}
                                   onChange={(val) => onUpdate(section, { buttonIcon: val })}
                                 />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-[10px]">Icon Position</Label>
+                                <Select
+                                  value={getConfiguredString('buttonIconPosition', 'right') === 'left' ? 'left' : 'right'}
+                                  onValueChange={(value: 'left' | 'right') => onUpdate(section, { buttonIconPosition: value })}
+                                >
+                                  <SelectTrigger className="h-8 text-[10px]">
+                                    <SelectValue placeholder="Position" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="left" className="text-[10px]">Left</SelectItem>
+                                    <SelectItem value="right" className="text-[10px]">Right</SelectItem>
+                                  </SelectContent>
+                                </Select>
                               </div>
                             </div>
                           )}
@@ -860,7 +1125,7 @@ function SectionCustomizer({
                             </div>
                             {config.showButton2 && (
                               <div className="space-y-3 bg-muted/30 p-2 rounded-md border border-dashed">
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-1 gap-2">
                                   <div className="space-y-1">
                                     <Label className="text-[10px]">Text</Label>
                                     <Input
@@ -872,28 +1137,126 @@ function SectionCustomizer({
                                   <div className="space-y-1">
                                     <Label className="text-[10px]">Link</Label>
                                     <Select
-                                      value={config.button2Link || ""}
-                                      onValueChange={(value) => onUpdate(section, { button2Link: value })}
+                                      value={heroSecondarySelectValue}
+                                      onValueChange={(value) => {
+                                        if (section === 'hero' && value === CUSTOM_LINK_VALUE) {
+                                          setIsCustomHeroDemoLinkMode(true)
+                                          return
+                                        }
+
+                                        if (section === 'hero') {
+                                          setIsCustomHeroDemoLinkMode(false)
+                                          onUpdate(section, { button2Link: value, heroVideoLink: value })
+                                          return
+                                        }
+
+                                        onUpdate(section, { button2Link: value })
+                                      }}
                                     >
                                       <SelectTrigger className="h-8 text-[10px]">
                                         <SelectValue placeholder="Link" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        {AVAILABLE_LINKS.map((link) => (
-                                          <SelectItem key={link.value} value={link.value} className="text-[10px]">
-                                            {link.label}
+                                        {renderLinkOptions()}
+                                        {section === 'hero' && (
+                                          <SelectItem value={CUSTOM_LINK_VALUE} className="text-[10px]">
+                                            Custom Demo Video URL
                                           </SelectItem>
-                                        ))}
+                                        )}
                                       </SelectContent>
                                     </Select>
                                   </div>
                                 </div>
+                                {section === 'hero' && heroSecondarySelectValue === CUSTOM_LINK_VALUE && (
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px]">Custom Demo Video URL</Label>
+                                    <Input
+                                      value={heroVideoLinkRaw || heroSecondaryLinkRaw || ""}
+                                      onChange={(e) => {
+                                        const value = normalizeCustomLinkInput(e.target.value)
+                                        onUpdate(section, { button2Link: value, heroVideoLink: value })
+                                      }}
+                                      placeholder="Paste your demo video link"
+                                      className="h-8 text-xs"
+                                    />
+                                    <p className="text-[10px] text-muted-foreground">
+                                      Paste YouTube link. This URL is used by both Watch Demo and center play button.
+                                    </p>
+                                  </div>
+                                )}
+                                {section === 'hero' && heroSecondarySelectValue === CUSTOM_LINK_VALUE && (
+                                  <div className="space-y-2 rounded-md border p-2 bg-card">
+                                    <Label className="text-[10px]">Hero Thumbnail Image</Label>
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-8 w-8 rounded bg-muted flex items-center justify-center overflow-hidden border shrink-0">
+                                        {config.heroImage ? (
+                                          <img src={config.heroImage} alt="Hero thumbnail preview" className="h-full w-full object-cover" />
+                                        ) : (
+                                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                        )}
+                                      </div>
+                                      <Input
+                                        value={getImageInputDisplayValue(heroImageValue)}
+                                        onChange={(e) => onUpdate(section, { heroImage: e.target.value })}
+                                        placeholder="Add your thumbnail image"
+                                        className={cn(
+                                          "h-8 text-xs flex-1",
+                                          isHeroImageDataUri && "bg-muted/30 cursor-not-allowed"
+                                        )}
+                                        disabled={isHeroImageDataUri}
+                                      />
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                        onClick={() => onUpdate(section, { heroImage: "" })}
+                                        aria-label="Clear hero thumbnail image"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </div>
+                                    <div className="flex gap-2 pl-10">
+                                      <Button variant="outline" size="sm" className="h-7 text-[10px] w-full" asChild>
+                                        <label className="cursor-pointer">
+                                          <Upload className="h-3 w-3 mr-1" />
+                                          Upload Image
+                                          <input
+                                            type="file"
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={(e) =>
+                                              handleImageUpload(e, (url, fileName) => {
+                                                setUploadedFileNameByImageSrc((prev) => ({ ...prev, [url]: fileName }))
+                                                onUpdate(section, { heroImage: url })
+                                              })
+                                            }
+                                          />
+                                        </label>
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
                                 <div className="space-y-1 text-left">
                                   <Label className="text-[10px] font-semibold text-muted-foreground uppercase">Secondary Icon</Label>
                                   <IconPicker
-                                    value={config.button2Icon || ""}
+                                    value={getConfiguredString('button2Icon')}
                                     onChange={(val) => onUpdate(section, { button2Icon: val })}
                                   />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-[10px]">Secondary Icon Position</Label>
+                                  <Select
+                                    value={getConfiguredString('button2IconPosition', 'right') === 'left' ? 'left' : 'right'}
+                                    onValueChange={(value: 'left' | 'right') => onUpdate(section, { button2IconPosition: value })}
+                                  >
+                                    <SelectTrigger className="h-8 text-[10px]">
+                                      <SelectValue placeholder="Position" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="left" className="text-[10px]">Left</SelectItem>
+                                      <SelectItem value="right" className="text-[10px]">Right</SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                                 <div className="space-y-1">
                                   <Label className="text-[10px]">Tooltip Text</Label>
@@ -909,7 +1272,7 @@ function SectionCustomizer({
                           </div>
                         )}
                       </div>
-                      <Separator />
+
                     </div>
                   )}
                   {/* Advanced Configuration Container */}
@@ -1073,6 +1436,49 @@ function SectionCustomizer({
                             ))}
                             <Button variant="outline" size="sm" onClick={() => addFeature('main')} className="w-full text-xs h-9 dashed border-2 border-primary/20 text-primary font-bold hover:bg-primary/5 transition-all focus:ring-0 focus:ring-offset-0"><Plus className="h-3.5 w-3.5 mr-1" /> Add Feature</Button>
                           </div>
+                          <Separator className="my-3" />
+                          <Accordion type="single" collapsible className="w-full">
+                            <AccordionItem value="features-style1-buttons" className="border-none">
+                              <AccordionTrigger className="py-2 hover:no-underline">
+                                <Label className="text-[10px] font-bold uppercase cursor-pointer">Style 1 Buttons</Label>
+                              </AccordionTrigger>
+                              <AccordionContent className="space-y-4 pt-2">
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-[10px] font-bold">Primary Button</Label>
+                                    <Switch checked={getConfiguredBoolean('showButton')} onCheckedChange={(val) => onUpdate(section, { showButton: val })} className="scale-75" />
+                                  </div>
+                                  {getConfiguredBoolean('showButton') && (
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <Input value={getConfiguredString('buttonText')} onChange={(e) => onUpdate(section, { buttonText: e.target.value })} className="h-7 text-[10px]" placeholder="Text" />
+                                      <Select value={getConfiguredLinkValue('buttonLink')} onValueChange={(val) => onUpdate(section, { buttonLink: val })}>
+                                        <SelectTrigger className="h-7 text-[10px]"><SelectValue placeholder="Link" /></SelectTrigger>
+                                        <SelectContent>{renderLinkOptions()}</SelectContent>
+                                      </Select>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-[10px] font-bold">Secondary Button</Label>
+                                    <Switch checked={getConfiguredBoolean('showButton2')} onCheckedChange={(val) => onUpdate(section, { showButton2: val })} className="scale-75" />
+                                  </div>
+                                  {getConfiguredBoolean('showButton2') && (
+                                    <div className="space-y-2">
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <Input value={getConfiguredString('button2Text')} onChange={(e) => onUpdate(section, { button2Text: e.target.value })} className="h-7 text-[10px]" placeholder="Text" />
+                                        <Select value={getConfiguredLinkValue('button2Link')} onValueChange={(val) => onUpdate(section, { button2Link: val })}>
+                                          <SelectTrigger className="h-7 text-[10px]"><SelectValue placeholder="Link" /></SelectTrigger>
+                                          <SelectContent>{renderLinkOptions()}</SelectContent>
+                                        </Select>
+                                      </div>
+                                      <Input value={getConfiguredString('button2Tooltip')} onChange={(e) => onUpdate(section, { button2Tooltip: e.target.value })} className="h-7 text-[10px]" placeholder="Tooltip Text" />
+                                    </div>
+                                  )}
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
                         </div>
 
                         {/* Style 2 */}
@@ -1100,6 +1506,49 @@ function SectionCustomizer({
                             ))}
                             <Button variant="outline" size="sm" onClick={() => addFeature('secondary')} className="w-full text-xs h-9 dashed border-2 border-primary/20 text-primary font-bold hover:bg-primary/5 transition-all focus:ring-0 focus:ring-offset-0"><Plus className="h-3.5 w-3.5 mr-1" /> Add Feature</Button>
                           </div>
+                          <Separator className="my-3" />
+                          <Accordion type="single" collapsible className="w-full">
+                            <AccordionItem value="features-style2-buttons" className="border-none">
+                              <AccordionTrigger className="py-2 hover:no-underline">
+                                <Label className="text-[10px] font-bold uppercase cursor-pointer">Style 2 Buttons</Label>
+                              </AccordionTrigger>
+                              <AccordionContent className="space-y-4 pt-2">
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-[10px] font-bold">Primary Button</Label>
+                                    <Switch checked={getConfiguredBoolean('f2ShowButton')} onCheckedChange={(val) => onUpdate(section, { f2ShowButton: val })} className="scale-75" />
+                                  </div>
+                                  {getConfiguredBoolean('f2ShowButton') && (
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <Input value={getConfiguredString('f2ButtonText')} onChange={(e) => onUpdate(section, { f2ButtonText: e.target.value })} className="h-7 text-[10px]" placeholder="Text" />
+                                      <Select value={getConfiguredLinkValue('f2ButtonLink', true)} onValueChange={(val) => onUpdate(section, { f2ButtonLink: val })}>
+                                        <SelectTrigger className="h-7 text-[10px]"><SelectValue placeholder="Link" /></SelectTrigger>
+                                        <SelectContent>{renderLinkOptions()}</SelectContent>
+                                      </Select>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-[10px] font-bold">Secondary Button</Label>
+                                    <Switch checked={getConfiguredBoolean('f2ShowButton2')} onCheckedChange={(val) => onUpdate(section, { f2ShowButton2: val })} className="scale-75" />
+                                  </div>
+                                  {getConfiguredBoolean('f2ShowButton2') && (
+                                    <div className="space-y-2">
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <Input value={getConfiguredString('f2Button2Text')} onChange={(e) => onUpdate(section, { f2Button2Text: e.target.value })} className="h-7 text-[10px]" placeholder="Text" />
+                                        <Select value={getConfiguredLinkValue('f2Button2Link')} onValueChange={(val) => onUpdate(section, { f2Button2Link: val })}>
+                                          <SelectTrigger className="h-7 text-[10px]"><SelectValue placeholder="Link" /></SelectTrigger>
+                                          <SelectContent>{renderLinkOptions()}</SelectContent>
+                                        </Select>
+                                      </div>
+                                      <Input value={getConfiguredString('f2Button2Tooltip')} onChange={(e) => onUpdate(section, { f2Button2Tooltip: e.target.value })} className="h-7 text-[10px]" placeholder="Tooltip Text" />
+                                    </div>
+                                  )}
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
                         </div>
                       </div>
                     )}
@@ -1240,7 +1689,7 @@ function SectionCustomizer({
                               <div key={index} className="p-3 bg-card border rounded-md space-y-3 relative group-item hover:border-primary/30 transition-colors">
                                 <Button variant="ghost" size="icon" onClick={() => removeContactOption(index)} className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background border shadow-xs text-destructive hover:bg-destructive/10"><Trash2 className="h-3 w-3" /></Button>
                                 <div className="space-y-2">
-                                  <div className="grid grid-cols-1 gap-2">
+                                  <div className="grid grid-cols-2 gap-2">
                                     <Input value={option.title} onChange={(e) => updateContactOption(index, 'title', e.target.value)} className="h-8 text-xs font-bold" placeholder="Card Title" />
                                     <Textarea value={option.description} onChange={(e) => updateContactOption(index, 'description', e.target.value)} className="min-h-[50px] text-[11px] resize-none" placeholder="Card Description" />
                                   </div>
@@ -1294,19 +1743,23 @@ export function LandingThemeCustomizer({ open, onOpenChange }: LandingThemeCusto
   const [activeTab, setActiveTab] = React.useState("theme")
   const [selectedTheme, setSelectedTheme] = React.useState("")
   const [selectedTweakcnTheme, setSelectedTweakcnTheme] = React.useState("")
-  const [activePresetType, setActivePresetType] = React.useState<"theme" | "tweakcn" | "custom">("theme")
   const [selectedRadius, setSelectedRadius] = React.useState("0.5rem")
+  const [lightModeLogo, setLightModeLogo] = React.useState("")
+  const [lightModeLogoWidth, setLightModeLogoWidth] = React.useState(0)
+  const [lightModeLogoHeight, setLightModeLogoHeight] = React.useState(0)
+  const [isUploadingLandingLogo, setIsUploadingLandingLogo] = React.useState(false)
   const [importModalOpen, setImportModalOpen] = React.useState(false)
   const [importedTheme, setImportedTheme] = React.useState<ImportedTheme | null>(null)
   const [isSaving, setIsSaving] = React.useState(false)
-  const [isUploadingLogo, setIsUploadingLogo] = React.useState(false)
-  const logoInputRef = React.useRef<HTMLInputElement>(null)
+  const lightLogoInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const handleReset = () => {
     setSelectedTheme("")
     setSelectedTweakcnTheme("")
-    setActivePresetType("theme")
     setSelectedRadius("0.5rem")
+    setLightModeLogo("")
+    setLightModeLogoWidth(0)
+    setLightModeLogoHeight(0)
     setImportedTheme(null)
     setBrandColorsValues({})
     setLandingContent(DEFAULT_SETTINGS)
@@ -1330,9 +1783,8 @@ export function LandingThemeCustomizer({ open, onOpenChange }: LandingThemeCusto
     setSelectedTheme(randomTheme.value)
     setSelectedTweakcnTheme("")
     setBrandColorsValues({})
-    setActivePresetType("theme")
     setImportedTheme(null)
-    applyTheme(randomTheme.value, false)
+    applyTheme(randomTheme.value, isDarkMode)
   }
 
   const handleRandomTweakcn = () => {
@@ -1340,9 +1792,8 @@ export function LandingThemeCustomizer({ open, onOpenChange }: LandingThemeCusto
     setSelectedTweakcnTheme(randomTheme.value)
     setSelectedTheme("")
     setBrandColorsValues({})
-    setActivePresetType("tweakcn")
     setImportedTheme(null)
-    applyTweakcnTheme(randomTheme.preset, false)
+    applyTweakcnTheme(randomTheme.preset, isDarkMode)
   }
 
   const handleRadiusSelect = (radius: string) => {
@@ -1350,19 +1801,35 @@ export function LandingThemeCustomizer({ open, onOpenChange }: LandingThemeCusto
     applyRadius(radius)
   }
 
-  const handleHeaderLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleLightLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
     if (!file) return
 
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file.")
+      event.target.value = ""
+      return
+    }
+
+    if (file.size > 800 * 1024) {
+      toast.error("Logo image must be 800KB or smaller.")
+      event.target.value = ""
+      return
+    }
+
     try {
-      setIsUploadingLogo(true)
-      const url = await customizerApi.uploadFile(file)
-      updateSection('header', { siteLogo: url })
-      toast.success("Logo uploaded successfully")
+      setIsUploadingLandingLogo(true)
+      const uploadedUrl = await customizerApi.uploadLogo(file)
+      if (!uploadedUrl) {
+        throw new Error("Invalid upload response")
+      }
+      setLightModeLogo(uploadedUrl)
+      toast.success("Landing logo uploaded successfully.")
     } catch {
-      toast.error("Failed to upload logo")
+      toast.error("Failed to upload selected image.")
+      event.target.value = ""
     } finally {
-      setIsUploadingLogo(false)
+      setIsUploadingLandingLogo(false)
     }
   }
 
@@ -1372,29 +1839,24 @@ export function LandingThemeCustomizer({ open, onOpenChange }: LandingThemeCusto
       const radiusNumber = Number.parseFloat(selectedRadius.replace("rem", ""))
 
       const payload = {
-        landing_theme: {
-          preset: activePresetType === "theme" ? (selectedTheme || "") : "",
-          tweakcn_preset: activePresetType === "tweakcn" ? (selectedTweakcnTheme || "") : "",
+        theme: {
+          preset: selectedTheme || "default",
+          tweakcn_preset: selectedTweakcnTheme || "",
           radius: Number.isFinite(radiusNumber) ? radiusNumber : 0.5,
-          mode: "light" as const,
-          custom_colors:
-            activePresetType === "custom"
-              ? Object.entries(brandColorsValues).reduce<Record<string, Array<{ code: string; value: string }>>>(
-                  (acc, [cssVar, value]) => {
-                    if (!value) return acc
-                    const apiKey = cssVar.replace(/^--/, "").replace(/-/g, "_")
-                    acc[apiKey] = [{ code: value, value: apiKey }]
-                    return acc
-                  },
-                  {}
-                )
-              : {},
+          mode: isDarkMode ? "dark" : "light" as any,
+          brand_colors: { manual: Object.entries(brandColorsValues).map(([code, value]) => ({ code, value })) }
         },
-        landing_content: landingContent
+        landing_content: {
+          ...landingContent,
+          header: {
+            ...landingContent.header,
+            siteLogo: lightModeLogo.trim() || DEFAULT_SETTINGS.header.siteLogo,
+          },
+        },
       }
 
-      localStorage.setItem('kivicare-landing-theme', JSON.stringify(payload))
       await customizerApi.saveSettings(payload)
+      window.dispatchEvent(new Event("kivicare-landing-customizer-updated"))
       const latestSettings = await customizerApi.getSettingsPublic()
       if (latestSettings?.landing_content) {
         setLandingContent({
@@ -1402,7 +1864,6 @@ export function LandingThemeCustomizer({ open, onOpenChange }: LandingThemeCusto
           ...latestSettings.landing_content,
         })
       }
-      window.dispatchEvent(new CustomEvent('kivicare-customizer-updated'))
       toast.success("Customizer settings saved")
     } catch {
       toast.error("Failed to save customizer settings")
@@ -1416,47 +1877,33 @@ export function LandingThemeCustomizer({ open, onOpenChange }: LandingThemeCusto
     const hydrateUI = async () => {
       try {
         let settings = null
-        const localStr = localStorage.getItem('kivicare-landing-theme')
-        if (localStr) settings = JSON.parse(localStr)
-
-        if (!settings) {
+        try {
           settings = await customizerApi.getSettings()
+        } catch {
+          settings = await customizerApi.getSettingsPublic()
         }
 
-        if (settings?.landing_theme) {
-          if (settings.landing_theme.preset) {
-            setSelectedTheme(settings.landing_theme.preset)
-            setSelectedTweakcnTheme("")
-            setActivePresetType("theme")
-            setBrandColorsValues({})
-          } else if (settings.landing_theme.tweakcn_preset) {
-            setSelectedTweakcnTheme(settings.landing_theme.tweakcn_preset)
-            setSelectedTheme("")
-            setActivePresetType("tweakcn")
-            setBrandColorsValues({})
-          }
-          if (settings.landing_theme.radius) setSelectedRadius(`${settings.landing_theme.radius}rem`)
-          const persistedColors = settings.landing_theme.custom_colors || settings.landing_theme.brand_colors
-          if (
-            persistedColors &&
-            !settings.landing_theme.preset &&
-            !settings.landing_theme.tweakcn_preset
-          ) {
+        if (settings?.theme) {
+          if (settings.theme.preset) setSelectedTheme(settings.theme.preset)
+          if (settings.theme.tweakcn_preset) setSelectedTweakcnTheme(settings.theme.tweakcn_preset)
+          if (settings.theme.radius) setSelectedRadius(`${settings.theme.radius}rem`)
+          if (settings.theme.brand_colors) {
             const colors: Record<string, string> = {}
-            Object.entries(persistedColors).forEach(([key, values]) => {
-              const color = (values as any)?.[0]?.code
-              if (color) {
-                const cssVar = `--${key.replace(/_/g, '-')}`
-                colors[cssVar] = color
-                document.documentElement.style.setProperty(cssVar, color)
+            Object.values(settings.theme.brand_colors).flat().forEach((c: any) => {
+              if (c.code && c.value) {
+                colors[c.code] = c.value
+                document.documentElement.style.setProperty(c.code, c.value)
               }
             })
             setBrandColorsValues(colors)
-            setActivePresetType("custom")
-          } else if (!settings.landing_theme.preset && !settings.landing_theme.tweakcn_preset) {
-            setBrandColorsValues({})
-            setActivePresetType("theme")
           }
+        }
+
+        const landingHeaderLogo = settings?.landing_content?.header?.siteLogo
+        if (typeof landingHeaderLogo === "string" && landingHeaderLogo.trim()) {
+          setLightModeLogo(landingHeaderLogo)
+        } else {
+          setLightModeLogo(DEFAULT_SETTINGS.header.siteLogo || "")
         }
       } catch (e) { }
     }
@@ -1466,23 +1913,26 @@ export function LandingThemeCustomizer({ open, onOpenChange }: LandingThemeCusto
   // Re-apply themes when theme mode changes
   React.useEffect(() => {
     if (importedTheme) {
-      applyImportedTheme(importedTheme, false)
+      applyImportedTheme(importedTheme, isDarkMode)
     } else if (selectedTheme) {
-      applyTheme(selectedTheme, false)
+      applyTheme(selectedTheme, isDarkMode)
     } else if (selectedTweakcnTheme) {
       const selectedPreset = tweakcnThemes.find(t => t.value === selectedTweakcnTheme)?.preset
       if (selectedPreset) {
-        applyTweakcnTheme(selectedPreset, false)
+        applyTweakcnTheme(selectedPreset, isDarkMode)
       }
-    } else if (activePresetType === "custom" && Object.keys(brandColorsValues).length > 0) {
-      applyTheme("default", false)
-      Object.entries(brandColorsValues).forEach(([cssVar, value]) => {
-        if (value) {
-          document.documentElement.style.setProperty(cssVar, value)
-        }
-      })
     }
-  }, [importedTheme, selectedTheme, selectedTweakcnTheme, activePresetType, brandColorsValues, applyImportedTheme, applyTheme, applyTweakcnTheme])
+  }, [isDarkMode, importedTheme, selectedTheme, selectedTweakcnTheme, applyImportedTheme, applyTheme, applyTweakcnTheme])
+
+  React.useEffect(() => {
+    setLandingContent({
+      ...landingContent,
+      header: {
+        ...landingContent.header,
+        siteLogo: lightModeLogo.trim() || DEFAULT_SETTINGS.header.siteLogo,
+      },
+    })
+  }, [lightModeLogo])
 
   return (
     <>
@@ -1549,9 +1999,8 @@ export function LandingThemeCustomizer({ open, onOpenChange }: LandingThemeCusto
                         setSelectedTheme(value)
                         setSelectedTweakcnTheme("")
                         setBrandColorsValues({})
-                        setActivePresetType("theme")
                         setImportedTheme(null)
-                        applyTheme(value, false)
+                        applyTheme(value, isDarkMode)
                       }}
                     >
                       <SelectTrigger className="w-full cursor-pointer">
@@ -1592,11 +2041,10 @@ export function LandingThemeCustomizer({ open, onOpenChange }: LandingThemeCusto
                         setSelectedTweakcnTheme(value)
                         setSelectedTheme("")
                         setBrandColorsValues({})
-                        setActivePresetType("tweakcn")
                         setImportedTheme(null)
                         const selectedPreset = tweakcnThemes.find(t => t.value === value)?.preset
                         if (selectedPreset) {
-                          applyTweakcnTheme(selectedPreset, false)
+                          applyTweakcnTheme(selectedPreset, isDarkMode)
                         }
                       }}
                     >
@@ -1621,6 +2069,8 @@ export function LandingThemeCustomizer({ open, onOpenChange }: LandingThemeCusto
                     </Select>
                   </div>
 
+                  <Separator />
+
                   <div className="space-y-3">
                     <Label className="text-sm font-medium">Radius</Label>
                     <div className="grid grid-cols-5 gap-2">
@@ -1641,81 +2091,57 @@ export function LandingThemeCustomizer({ open, onOpenChange }: LandingThemeCusto
 
                   <Separator />
 
-                  <Accordion type="multiple" className="w-full space-y-1 border-b rounded-lg">
-                    {customColorGroups.map((group) => (
-                    <AccordionItem key={group.label} value={group.label} className="border border-border rounded-lg overflow-hidden">
-                      <AccordionTrigger className="px-3 py-2 hover:no-underline hover:bg-muted/50 transition-colors text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        {group.label}
-                      </AccordionTrigger>
-                      <AccordionContent className="px-3 pb-3 pt-1 space-y-3 border-t border-border bg-muted/10">
-                        {group.colors.map((color) => (
-                          <ColorPicker
-                            key={color.cssVar}
-                            label={color.name}
-                            cssVar={color.cssVar}
-                            value={brandColorsValues[color.cssVar] || ""}
-                            onChange={(cssVar, value) => {
-                              setSelectedTheme("")
-                              setSelectedTweakcnTheme("")
-                              setActivePresetType("custom")
-                              handleColorChange(cssVar, value)
-                            }}
-                          />
-                        ))}
-                      </AccordionContent>
-                    </AccordionItem>
-                    ))}
-                  </Accordion>
-
-                  <Separator />
-
-                  {/* Header Logo Section */}
                   <div className="space-y-3">
                     <Label className="text-sm font-medium">Header Logo</Label>
                     <p className="text-xs text-muted-foreground">
                       Recommended: transparent PNG, ratio around 4:1 (e.g. 320x80), and maximum size 800KB.
                     </p>
-
                     <div className="space-y-3 rounded-md border p-3">
                       <div className="h-14 w-full overflow-hidden rounded border bg-muted/30">
-                        {landingContent.header.siteLogo ? (
-                          <img alt="Landing logo preview" className="h-full w-full object-contain" src={landingContent.header.siteLogo} />
+                        {lightModeLogo ? (
+                          <img src={lightModeLogo} alt="Landing logo preview" className="h-full w-full object-contain" />
                         ) : (
-                          <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">No logo</div>
+                          <div className="flex h-full w-full items-center justify-center text-[11px] text-muted-foreground">
+                            No logo
+                          </div>
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Button
-                          variant="outline"
+                          type="button"
                           size="sm"
-                          disabled={isUploadingLogo}
-                          onClick={() => logoInputRef.current?.click()}
+                          variant="outline"
                           className="cursor-pointer"
+                          disabled={isUploadingLandingLogo}
+                          onClick={() => lightLogoInputRef.current?.click()}
                         >
-                          {isUploadingLogo ? <Icons.Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Icons.Upload className="h-3.5 w-3.5 mr-1" />}
-                          Upload
+                          <Upload className="mr-1 h-3.5 w-3.5" />
+                          {isUploadingLandingLogo ? "Uploading..." : "Upload"}
                         </Button>
-                        <input
-                          ref={logoInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleHeaderLogoUpload}
-                        />
-                        {landingContent.header.siteLogo && (
-                          <Button variant="outline" size="sm" onClick={() => updateSection('header', { siteLogo: "" })} className="cursor-pointer">
-                            <Icons.Trash2 className="h-3.5 w-3.5 mr-1" />
+                        {lightModeLogo ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="cursor-pointer"
+                            onClick={() => {
+                              setLightModeLogo("")
+                              if (lightLogoInputRef.current) lightLogoInputRef.current.value = ""
+                            }}
+                          >
+                            <Trash2 className="mr-1 h-3.5 w-3.5" />
                             Remove
                           </Button>
-                        )}
+                        ) : null}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
                           <Label className="text-[11px] text-muted-foreground">Width (px)</Label>
                           <Input
                             type="number"
-                            value={landingContent.header.siteLogoWidth || ""}
-                            onChange={(e) => updateSection('header', { siteLogoWidth: parseInt(e.target.value) || 0 })}
+                            min={0}
+                            value={lightModeLogoWidth}
+                            onChange={(event) => setLightModeLogoWidth(Number.parseInt(event.target.value || "0", 10) || 0)}
                             placeholder="0"
                             className="h-8"
                           />
@@ -1724,15 +2150,44 @@ export function LandingThemeCustomizer({ open, onOpenChange }: LandingThemeCusto
                           <Label className="text-[11px] text-muted-foreground">Height (px)</Label>
                           <Input
                             type="number"
-                            value={landingContent.header.siteLogoHeight || ""}
-                            onChange={(e) => updateSection('header', { siteLogoHeight: parseInt(e.target.value) || 0 })}
+                            min={0}
+                            value={lightModeLogoHeight}
+                            onChange={(event) => setLightModeLogoHeight(Number.parseInt(event.target.value || "0", 10) || 0)}
                             placeholder="0"
                             className="h-8"
                           />
                         </div>
                       </div>
                     </div>
+                    <input
+                      ref={lightLogoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg,image/gif,image/webp,image/svg+xml"
+                      className="hidden"
+                      onChange={handleLightLogoUpload}
+                    />
                   </div>
+
+                  <Separator />
+
+                  <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="brand-colors" className="border-none">
+                      <AccordionTrigger className="py-2 hover:no-underline font-semibold text-xs text-primary uppercase">
+                        Brand Colors
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-4 pb-2 space-y-4 px-1">
+                        {baseColors.map((color) => (
+                          <ColorPicker
+                            key={color.cssVar}
+                            label={color.name}
+                            cssVar={color.cssVar}
+                            value={brandColorsValues[color.cssVar] || ""}
+                            onChange={handleColorChange}
+                          />
+                        ))}
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
                 </div>
               </TabsContent>
 

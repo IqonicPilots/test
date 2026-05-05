@@ -195,7 +195,15 @@ export default function ServicesPage() {
   const deleteServiceMutation = useDeleteService()
   const createServiceMutation = useCreateService()
   const queryClient = useQueryClient()
-  const { data: categories = [], isLoading: isLoadingCategories } = useListingData("service_type", true)
+  const { data: serviceTypes = [], isLoading: loadingServiceTypes } = useListingData("service_type", true)
+  const { data: specialtiesData = [], isLoading: loadingSpecialties } = useListingData("specialties", true)
+
+  const categories = useMemo(() => {
+    const combined = [...serviceTypes, ...specialtiesData]
+    return Array.from(new Map(combined.map(item => [item._id, item])).values())
+  }, [serviceTypes, specialtiesData])
+
+  const isLoadingCategories = loadingServiceTypes || loadingSpecialties
 
   const handleImportServices = async (services: any[]) => {
     let successCount = 0
