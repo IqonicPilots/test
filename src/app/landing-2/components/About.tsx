@@ -3,6 +3,7 @@
 import { useId } from "react"
 import { motion } from "framer-motion"
 import { ArrowUp, CheckCircle2, Star } from "lucide-react"
+import { CustomArrowIcon } from "./CustomIcons"
 
 function ExperienceSeal() {
   const ringId = useId().replace(/:/g, "")
@@ -28,7 +29,7 @@ function ExperienceSeal() {
         </text>
       </svg>
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <ArrowUp className="h-8 w-8 text-white" strokeWidth={3} />
+        <CustomArrowIcon className="h-8 w-8 text-white" strokeWidth={3} />
       </div>
     </div>
   )
@@ -36,19 +37,19 @@ function ExperienceSeal() {
 
 export function About() {
   return (
-    <section id="about-us" className="overflow-x-hidden overflow-y-visible bg-white py-24 md:py-32">
+    <section id="about-us" className="overflow-x-hidden overflow-y-visible bg-white py-10 md:py-32">
       <div className="container mx-auto px-4 md:px-6">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           {/* Left: Image-2 — main left, secondary overlapping right; seal top-left on main; rating under secondary */}
-          <div className="relative mx-auto w-full max-w-[min(100%,420px)] overflow-visible lg:mx-0 lg:max-w-none">
-            <div className="relative flex items-center justify-center gap-0 overflow-visible sm:justify-center">
+          <div className="relative mx-auto w-full max-w-[min(100%,500px)] lg:max-w-[min(100%,420px)] overflow-visible lg:mx-0 lg:max-w-none">
+            <div className="relative flex flex-col items-start gap-6 overflow-visible md:flex-row md:items-center md:justify-center md:gap-0">
               {/* Main portrait (secondary overlaps its right edge from the column to the right) */}
               <motion.div
                 initial={{ opacity: 0, x: -40 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.75 }}
                 viewport={{ once: true }}
-                className="relative z-10 w-[58%] min-w-0 shrink-0 sm:w-[55%] md:w-[66%]"
+                className="relative z-10 w-full min-w-0 shrink-0 sm:w-[85%] lg:w-[66%]"
               >
                 <img
                   src="/landing-2/wp-content/uploads/2025/11/about-us-image-1-left.png"
@@ -61,7 +62,7 @@ export function About() {
                   whileInView={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.55, delay: 0.18 }}
                   viewport={{ once: true }}
-                  className="absolute right-[52%] bottom-[30%] z-99 h-[4.25rem] w-[4.25rem] -translate-x-1.5/2 -translate-y-1.8/2 rounded-full border-8 border-white bg-[#316DFF] p-1 sm:right-[48%] sm:h-[5rem] sm:w-[5rem] sm:border-[10px] sm:p-1 md:-right-[20%] md:h-36 md:w-36"
+                  className="absolute z-99 h-28 w-28 md:h-36 md:w-36 md:-translate-x-1.5/2 md:-translate-y-1.8/2 rounded-full border-8 border-white bg-[#316DFF] p-1 sm:right-[48%] sm:h-[5rem] sm:w-[5rem] sm:border-[10px] sm:p-1 right-[35%] -bottom-[105%] md:-right-[20%] md:bottom-[30%]"
                   aria-label="9+ years excellence"
                 >
                   <ExperienceSeal />
@@ -74,12 +75,12 @@ export function About() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.75, delay: 0.12 }}
                 viewport={{ once: true }}
-                className="relative -ml-[12%] flex flex-col sm:-ml-[14%] md:ml-[5%]"
+                className="relative w-full flex flex-col sm:ml-[7%] lg:ml-[5%]"
               >
                 <img
                   src="/landing-2/wp-content/uploads/2025/11/about-us-image-2.jpg"
                   alt="Clinic"
-                  className="w-full rounded-2xl object-cover sm:rounded-3xl"
+                  className="w-full h-[500px] h-full rounded-2xl object-cover sm:rounded-3xl"
                 />
 
                 <motion.div
@@ -89,19 +90,19 @@ export function About() {
                   viewport={{ once: true }}
                   className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 sm:mt-4 sm:rounded-3xl sm:p-8"
                 >
-                  <p className="text-2xl font-black text-[#161A2D] sm:text-3xl">
-                    4.9<span className="text-lg font-bold text-[#626467] sm:text-xl">/5</span>
+                  <p className="text-3xl font-black text-[#161A2D] sm:text-3xl">
+                    4.9<span className="text-xl font-bold text-[#626467] sm:text-xl">/5</span>
                   </p>
                   <div className="mt-2 flex gap-0.5">
                     {[1, 2, 3, 4].map((i) => (
                       <Star
                         key={i}
-                        className="h-4 w-4 fill-[#316DFF] text-[#316DFF] sm:h-[18px] sm:w-[18px]"
+                        className="h-6 w-6 fill-[#316DFF] text-[#316DFF] sm:h-[18px] sm:w-[18px]"
                       />
                     ))}
-                    <Star className="h-4 w-4 fill-slate-200 text-slate-200 sm:h-[18px] sm:w-[18px]" />
+                    <Star className="h-6 w-6 fill-slate-200 text-slate-200 sm:h-[18px] sm:w-[18px]" />
                   </div>
-                  <p className="mt-2 text-xs leading-snug text-[#626467] sm:text-sm">
+                  <p className="mt-2 text-md leading-snug text-[#626467] sm:text-sm">
                     Average patient satisfaction rating.
                   </p>
                 </motion.div>
@@ -116,7 +117,7 @@ export function About() {
                 <span className="mr-1.5 text-[#316DFF]">•</span>
                 About Us
               </span>
-              <h2 className="text-4xl font-black leading-tight text-[#161A2D] md:text-5xl">
+              <h2 className="text-2xl font-bold leading-tight text-[#161A2D] md:text-5xl">
                 Your trusted dental partner for every family member
               </h2>
               <p className="text-lg leading-relaxed text-[#626467]">
@@ -138,10 +139,10 @@ export function About() {
             </div>
 
             <div className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:rounded-3xl sm:p-8">
-              <p className="text-center text-lg font-black text-[#161A2D] sm:text-left sm:text-xl">
+              <p className="text-left text-lg font-black text-[#161A2D] sm:text-xl">
                 Trusted by over 5,000+ patients worldwide
               </p>
-              <div className="flex items-center justify-center -space-x-2 sm:justify-end sm:pl-4">
+              <div className="flex justify-start md:items-center md:justify-center -space-x-2 sm:justify-end sm:pl-4">
                 {[1, 2, 3, 4].map((i) => (
                   <img
                     key={i}

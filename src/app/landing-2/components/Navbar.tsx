@@ -6,6 +6,7 @@ import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { CustomArrowIcon } from "./CustomIcons"
+import { useRouter } from "next/navigation"
 
 const navItems = [
   { name: "Home", href: "#", active: true },
@@ -20,7 +21,12 @@ const navItems = [
 export function Navbar() {
   const [isOpen, setIsOpen] = React.useState(false)
   const [scrolled, setScrolled] = React.useState(false)
-
+  const router = useRouter()
+  const handleBookAppointment = () => {
+    router.push("/book-appointment")
+    sessionStorage.removeItem('bookingClinicId')
+    sessionStorage.removeItem('bookingDoctorId')
+  }
   React.useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20)
@@ -51,7 +57,7 @@ export function Navbar() {
       >
         <Link href="/landing-2" className="flex items-center shrink-0">
           <img
-            src="/landing-2/wp-content/uploads/2025/09/site-logo.svg"
+            src="/logo.png"
             alt="Toothmate Logo"
             className="h-10 w-auto max-xl:h-8"
           />
@@ -69,7 +75,7 @@ export function Navbar() {
                   ? "text-white hover:text-white/80"
                   : item.active
                     ? "text-gray-900"
-                    : "text-[#161A2D] hover:text-[#316DFF]"
+                    : "text-[#161A2D] hover:text-[#316DFF]",
               )}
             >
               {item.name}
@@ -82,6 +88,7 @@ export function Navbar() {
             variant={"default"}
             size={"lg"}
             className="hidden xl:inline-flex bg-[#316DFF] hover:bg-[#2655cc] text-white rounded-full px-5 py-3.5 2xl:px-8 2xl:py-6 text-sm 2xl:text-base font-bold transition-all group"
+            onClick={handleBookAppointment}
           >
             Make An Appointment <CustomArrowIcon className="ml-2 text-2xl group-hover:translate-x-1" />
           </Button>

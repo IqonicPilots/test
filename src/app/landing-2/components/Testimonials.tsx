@@ -569,20 +569,14 @@ export function Testimonials() {
   }, [cardWidth, markUserInteraction, syncActiveFromScroll])
 
   return (
-    <section id="testimonials" className="overflow-x-hidden bg-white py-20 md:py-28">
+    <section id="testimonials" className="overflow-x-hidden bg-white py-10 md:py-28">
       <div className="container mx-auto max-w-[1300px] px-4 md:px-6">
         <div className="mx-auto mb-12 max-w-3xl text-center md:mb-16">
-          <p
-            className="mb-4 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-[0.2em] md:text-[13px]"
-            style={{ color: BLUE }}
-          >
-            <span className="text-[1.1em] leading-none" aria-hidden>
-              ●
-            </span>
+          <div className="text-sm font-bold uppercase tracking-widest text-[#316DFF]">
+            <span className="mr-1.5 text-[#316DFF]">•</span>
             Testimonials
-          </p>
-          <h2
-            className="text-balance font-sans text-3xl font-bold leading-tight tracking-tight md:text-4xl lg:text-[2.65rem] lg:leading-[1.15]"
+          </div>
+          <h2 className="text-balance font-sans mt-2 text-3xl font-bold leading-tight tracking-tight md:text-4xl lg:text-[2.65rem] lg:leading-[1.15]"
             style={{ color: INK }}
           >
             Happy patients sharing their dental care journey

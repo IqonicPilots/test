@@ -78,7 +78,7 @@ export function Services() {
                 <img
                   src={service.img}
                   alt={service.title}
-                  className="w-[78%] h-[78%] object-contain transition-transform duration-300 group-hover:scale-105"
+                  className="w-full md:w-[78%] h-full md:h-[78%] object-contain transition-transform duration-300 group-hover:scale-105"
                 />
               </div>
               <h3 className="text-[24px] md:text-[28px] font-bold text-[#161A2D] mb-2">
@@ -91,7 +91,7 @@ export function Services() {
           ))}
         </div>
 
-        <div className="mt-16 text-center flex flex-row items-center justify-center gap-2">
+        <div className="mt-16 text-center flex flex-col md:flex-row items-center justify-center gap-2">
           <span className="text-white font-bold text-sm inline-flex items-center bg-primary px-3 py-1 rounded-full">Free</span>
           <span className="text-[#161A2D] font-bold text-md">Let’s make something great work together.</span>
           <span className="text-primary font-bold text-md cursor-pointer underline hover:text-black">Get Free Quote</span>

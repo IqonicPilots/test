@@ -5,12 +5,12 @@ import { ArrowRight } from "lucide-react"
 
 export function Features() {
   return (
-    <section id="features" className="py-24 md:py-32 bg-white overflow-hidden">
+    <section id="features" className="py-12 md:py-32 bg-white overflow-hidden">
       <div className="container mx-auto px-4 md:px-6">
         <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
           <div className="text-sm font-bold uppercase tracking-widest text-[#316DFF]">
             <span className="mr-1.5 text-[#316DFF]">•</span>
-            Our Services
+            Our Feature
           </div>
           <h2 className="text-4xl md:text-5xl font-black text-[#161A2D]">
             Modern dentistry focused on your comfort and care
@@ -29,7 +29,7 @@ export function Features() {
             initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, amount: 0.25 }}
-            className="bg-[#316DFF] p-8 lg:p-10 rounded-[28px] text-white flex flex-col justify-end gap-6 min-h-[360px] lg:min-h-[430px] relative overflow-hidden group"
+            className="bg-[#316DFF] p-8 lg:p-10 rounded-[28px] text-white flex flex-col justify-end gap-6 min-h-[250px] lg:min-h-[430px] relative overflow-hidden group"
           >
             <img
               src="/landing-2/wp-content/uploads/2025/11/feature-item-bg-image-1.png" 
@@ -49,12 +49,12 @@ export function Features() {
             <div className="absolute -bottom-14 -left-8 w-52 h-52 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all" />
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-4 lg:gap-5 items-end">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.25 }}
-              className="relative rounded-[24px] overflow-hidden group h-[210px] sm:h-[220px] lg:h-[280px]"
+              className="relative rounded-[24px] overflow-hidden group h-[500px] sm:h-[220px] lg:h-[280px]"
               style={{
                 WebkitMaskImage: "url('/landing-2/wp-content/uploads/2025/09/feature-image-bg-shape.svg')",
                 WebkitMaskSize: "100% 100%",
@@ -72,7 +72,7 @@ export function Features() {
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 z-10"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#161A2D] via-[#161A2D]/30 to-transparent opacity-90 z-20" />
-              <div className="absolute bottom-4 left-4 right-4 space-y-2 z-30">
+              <div className="absolute bottom-10 md:bottom-4 left-10 md:left-4 right-10 md:right-4 space-y-2 z-30">
                 <h3 className="text-lg font-bold text-white leading-tight">Committed to Long-Term Oral Health</h3>
               </div>
             </motion.div>
@@ -82,7 +82,7 @@ export function Features() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.08 }}
               viewport={{ once: true, amount: 0.25 }}
-              className="bg-[#EEF2FF] rounded-[24px] h-[150px] sm:h-[180px] lg:h-[180px] px-6 py-5 flex flex-col justify-between"
+              className="bg-[#EEF2FF] rounded-[24px] h-[200px] sm:h-[180px] lg:h-[180px] px-6 py-5 flex flex-col justify-between"
             >
               <div className="flex items-center justify-center -space-x-2.5 sm:pl-2">
                 {[1, 2, 3].map((i) => (
@@ -90,10 +90,10 @@ export function Features() {
                     key={i}
                     src={`/landing-2/wp-content/uploads/2025/09/author-${i}.jpg`}
                     alt=""
-                    className="h-6 w-6 rounded-full border-2 border-white object-cover shadow-sm sm:h-10 sm:w-10"
+                    className="h-15 w-15 md:h-6 md:w-6 rounded-full border-2 border-white object-cover shadow-sm sm:h-10 sm:w-10"
                   />
                 ))}
-                <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-[#316DFF] text-sm font-black text-white shadow-sm sm:h-10 sm:w-10">
+                <div className="flex h-15 w-15 md:h-8 md:w-8 items-center justify-center rounded-full border-2 border-white bg-[#316DFF] text-sm font-black text-white shadow-sm sm:h-10 sm:w-10">
                   +
                 </div>
               </div>
@@ -109,7 +109,7 @@ export function Features() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.12 }}
               viewport={{ once: true, amount: 0.25 }}
-              className="relative rounded-[24px] overflow-hidden group h-[210px] sm:h-[220px] lg:h-[280px]"
+              className="relative rounded-[24px] overflow-hidden group h-[300px] sm:h-[220px] lg:h-[280px]"
             >
               <img
                 src="/landing-2/wp-content/uploads/2025/11/about-us-image-2.jpg"
@@ -136,27 +136,27 @@ export function Features() {
               className="absolute top-0 right-0 w-120 h-auto opacity-95"
             />
             <div className="space-y-4 z-10 ">
-              <h3 className="text-xl lg:text-2xl font-bold">
+              <h3 className="text-2xl lg:text-2xl font-bold">
                 Advanced Technologies for Comfortable Treatments
               </h3>
             </div>
             <img
               src="/landing-2/wp-content/uploads/2025/09/hero-character-img-2.png"
               alt="Dental mascot"
-              className="absolute left-[22%] bottom-0 w-40 lg:w-60 h-auto opacity-95 transition-transform duration-500 group-hover:translate-y-1"
+              className="absolute left-[22%] bottom-0 w-55 lg:w-60 h-auto opacity-95 transition-transform duration-500 group-hover:translate-y-1"
             />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(49,109,255,.2),transparent_45%)]" />
           </motion.div>
         </div>
 
-        <div className="mt-10 flex items-center justify-center gap-3 text-center text-[#6B7280] text-sm">
+        <div className="mt-10 flex flex-col md:flex-row items-center justify-center gap-3 text-center text-[#6B7280] text-sm">
           <div className="flex -space-x-2">
             {[1, 2, 3].map((i) => (
               <img
                 key={`bottom-avatar-${i}`}
                 src={`/landing-2/wp-content/uploads/2025/09/author-${i}.jpg`}
                 alt={`Member ${i}`}
-                className="w-7 h-7 rounded-full border-2 border-white"
+                className="w-12 h-12 md:w-7 md:h-7 rounded-full border-2 border-white"
               />
             ))}
           </div>

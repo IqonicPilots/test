@@ -1,7 +1,6 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { ShieldCheck, HeartPulse, Sparkles, Wallet } from "lucide-react"
 
 const leftBenefits = [
   {
@@ -29,12 +28,10 @@ const rightBenefits = [
   }
 ]
 
-const mobileBenefits = [...leftBenefits, ...rightBenefits]
-
 export function WhyChooseUs() {
   return (
-    <section id="why-choose-us" className="relative px-4 md:px-6 pt-36 pb-6 overflow-hidden bg-white">
-      <div className="relative rounded-[40px] pt-32 pb-20 md:pt-40 md:pb-32 overflow-hidden text-white">
+    <section id="why-choose-us" className="relative md:px-4 md:px-6 pt-10 pb-6 overflow-hidden bg-white">
+      <div className="relative md:rounded-[40px] pt-20 pb-0 md:pt-40 md:pb-32 overflow-hidden text-white">
         {/* Background Grid Pattern */}
         <div className="absolute inset-0 z-0">
           <img
@@ -56,7 +53,7 @@ export function WhyChooseUs() {
           </div>
 
           <div className="relative mx-auto">
-            <div className="hidden md:grid md:grid-cols-[1.9fr_2.0fr_1.9fr] md:items-center md:gap-10">
+            <div className="grid grid-cols-1 md:grid-cols-[1.9fr_2.0fr_1.9fr] md:items-center md:gap-10">
               <div className="space-y-10">
                 {leftBenefits.map((b, i) => (
                   <motion.article
@@ -87,7 +84,7 @@ export function WhyChooseUs() {
                   <img
                     src="/landing-2/wp-content/uploads/2025/09/why-choose-image.png"
                     alt="Dental Implant"
-                    className="w-full max-w-[360px] relative z-10 drop-shadow-[0_0_50px_rgba(49,109,255,0.35)]"
+                    className="w-full max-w-[360px] relative z-10 "
                   />
                 </div>
               </motion.div>
@@ -109,35 +106,6 @@ export function WhyChooseUs() {
                   </motion.article>
                 ))}
               </div>
-            </div>
-
-            {/* Mobile Layout for Benefits */}
-            <div className="grid grid-cols-1 gap-6 mt-12 md:hidden">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 1 }}
-                className="flex justify-center relative z-20"
-              >
-                <div className="relative group">
-                  <div className="absolute inset-0 bg-[#316DFF]/20 blur-[90px] rounded-full group-hover:bg-[#316DFF]/30 transition-all" />
-                  <img
-                    src="/landing-2/wp-content/uploads/2025/09/why-choose-image.png"
-                    alt="Dental Implant"
-                    className="w-full max-w-[220px] relative z-10 drop-shadow-[0_0_40px_rgba(49,109,255,0.3)]"
-                  />
-                </div>
-              </motion.div>
-
-              {mobileBenefits.map((b, i) => (
-                <div key={i} className="border-b border-white/10 pb-6">
-                  <div className="w-11 h-11 text-white rounded-xl flex items-center justify-center mb-4">
-                    <div className="text-white" dangerouslySetInnerHTML={{ __html: b.icon }} />
-                  </div>
-                  <h3 className="text-2xl font-bold mb-3">{b.title}</h3>
-                  <p className="text-white/75 text-base leading-relaxed">{b.desc}</p>
-                </div>
-              ))}
             </div>
           </div>
         </div>

@@ -37,12 +37,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "";
-        
+
         // Ensure we are connecting to the ROOT, not /api/v1
         if (socketUrl.includes("/api/v1")) {
             socketUrl = socketUrl.split("/api/v1")[0];
         }
-        
+
         const socketInstance = io(socketUrl, {
             transports: ["websocket", "polling"],
             reconnection: true,
@@ -63,11 +63,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         });
 
         socketInstance.on("connect_error", (err) => {
-            console.error("❌ Socket Connection Error:", err.message);
-        });
-
-        socketInstance.on("error", (error) => {
-            console.error("❌ Socket Error:", error);
+            // Suppress error log to avoid intrusive overlays; keep logic for auth errors
+            if (err.message.includes("Authentication error")) {
+                console.warn("🔐 Stale session detected, clearing...");
+                localStorage.removeItem("auth_session");
+                window.location.href = "/login";
+            }
         });
 
         socketInstance.on("disconnect", (reason) => {

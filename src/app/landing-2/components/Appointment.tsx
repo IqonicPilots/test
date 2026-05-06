@@ -1,176 +1,95 @@
 "use client"
 
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { motion } from "framer-motion"
-import { Phone, Mail, CheckCircle2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { CustomArrowIcon } from "./CustomIcons"
+import { useRef } from "react"
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { toast } from "sonner"
-
-const formSchema = z.object({
-  fullName: z.string().min(2, "Full name is required"),
-  email: z.string().email("Invalid email address"),
-  phone: z.string().min(10, "Phone number is required"),
-  treatment: z.string().min(1, "Treatment is required"),
-  message: z.string().optional(),
-})
+  motion,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+} from "framer-motion"
+import { cn } from "@/lib/utils"
 
 export function Appointment() {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      fullName: "",
-      email: "",
-      phone: "",
-      treatment: "",
-      message: "",
-    },
+  const bannerRef = useRef<HTMLDivElement>(null)
+  const reduceMotion = useReducedMotion()
+  const { scrollYProgress } = useScroll({
+    target: bannerRef,
+    offset: ["start end", "end start"],
   })
-
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values)
-    toast.success("Appointment request sent successfully!")
-    form.reset()
-  }
+  const parallaxY = useTransform(
+    scrollYProgress,
+    [0, 1],
+    reduceMotion ? [0, 0] : [-400, 400]
+  )
 
   return (
-    <section id="book-appoinment" className="py-24 md:py-32 bg-white">
-      <div className="container mx-auto px-4 md:px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="bg-[#F2F7FF] rounded-[60px] overflow-hidden shadow-2xl flex flex-col lg:flex-row">
-            {/* Left Side: Info */}
-            <div className="lg:w-[40%] bg-[#161A2D] p-12 md:p-16 text-white flex flex-col justify-center space-y-10 relative overflow-hidden">
-              <div className="space-y-4 relative z-10">
-                <span className="text-[#316DFF] font-black tracking-widest uppercase text-sm">
-                  Book An Appointment
-                </span>
-                <h2 className="text-4xl md:text-5xl font-black leading-tight">
-                  Take the first step to a perfect smile
-                </h2>
-                <p className="text-white/40 text-lg">
-                  Fill out the form and our team will get back to you within 24 hours to confirm your slot.
-                </p>
-              </div>
+    <section id="book-appoinment" className="relative md:px-4 md:px-6 pt-10 pb-6 overflow-hidden bg-white">
+      <div className="relative md:rounded-[40px] overflow-hidden text-white">
+        <div
+          ref={bannerRef}
+          className={cn(
+            "relative overflow-hidden md:rounded-[40px]",
+            "flex flex-col lg:flex-row lg:items-stretch lg:min-h-[min(1000px,86vh)]"
+          )}
+        >
+          {/* Left: full-bleed clinic photo — vertical parallax on scroll */}
+          <div className="relative h-145 shrink-0 overflow-hidden sm:h-auto lg:h-auto lg:min-h-0 lg:flex-1">
+            <motion.div
+              className="pointer-events-none absolute left-0 right-0 h-[135%] w-full -top-[17%] lg:h-[128%] lg:-top-[14%]"
+              style={{ y: parallaxY }}
+              aria-hidden
+            >
+              <img
+                src="/landing-2/wp-content/uploads/2025/12/book-appointmnet-section-bg.jpg"
+                alt="Dental care professional at Kivicare clinic"
+                className="h-full w-full object-cover object-[center_28%] lg:object-[18%_center]"
+              />
+            </motion.div>
+            <div
+              className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/35 lg:bg-gradient-to-r lg:from-black/25 lg:via-transparent lg:to-white/35"
+              aria-hidden
+            />
+          </div>
 
-              <div className="space-y-8 relative z-10">
-                <div className="flex items-center space-x-4 group cursor-pointer">
-                  <div className="w-14 h-14 bg-[#316DFF]/10 rounded-2xl flex items-center justify-center text-[#316DFF] group-hover:bg-[#316DFF] group-hover:text-white transition-all">
-                    <Phone className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-white/40 font-bold uppercase tracking-wider">Call Us Anytime</p>
-                    <p className="text-xl font-black">+91 81414 75777</p>
-                  </div>
+          {/* Right: quote card overlapping the image on large screens */}
+          <div
+            className={cn(
+              "absolute z-10 flex items-stretch justify-center",
+              "px-4 pb-8 pt-8 sm:px-6 sm:pb-10 sm:pt-4",
+              "lg:absolute lg:inset-y-0 lg:left-[34%] xl:left-[36%] lg:right-0",
+              "lg:items-center lg:justify-end lg:px-6 xl:px-10 lg:pb-0 lg:pt-0"
+            )}
+          >
+            <div className="w-full max-w-lg rounded-2xl md:rounded-3xl bg-white p-6 sm:p-8 md:p-10 shadow-xl border border-gray-100/90 lg:shadow-2xl">
+              <div className="space-y-0 md:space-y-10">
+                <div className="text-gray-900">
+                  <p className="text-7xl leading-none font-black text-primary">
+                    &ldquo;
+                  </p>
+                  <p className="-mt-4 px-3 text-lg sm:text-xl md:text-xl leading-relaxed text-gray-700">
+                    KiviCare is a clinic & patient management system built primarily for WordPress, designed to handle medical appointments, records, billing, telemedicine, and more. It’s self‑hosted, so clinics control their own data, and it aims to launch a complete digital healthcare workflow quickly and efficiently.
+                  </p>
+                  <p className="ml-auto w-fit text-7xl leading-none font-black text-primary">
+                    &rdquo;
+                  </p>
                 </div>
-                <div className="flex items-center space-x-4 group cursor-pointer">
-                  <div className="w-14 h-14 bg-[#316DFF]/10 rounded-2xl flex items-center justify-center text-[#316DFF] group-hover:bg-[#316DFF] group-hover:text-white transition-all">
-                    <Mail className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-white/40 font-bold uppercase tracking-wider">Email Support</p>
-                    <p className="text-xl font-black">hello@kivicare.com</p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="pt-10 border-t border-white/5 relative z-10">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-500" />
-                  <span className="text-sm font-bold text-white/60">Professional Care & Modern Equipment</span>
-                </div>
-              </div>
-
-              {/* Decorative background shape */}
-              <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-[#316DFF] rounded-full blur-[120px] opacity-20" />
-            </div>
-
-            {/* Right Side: Form */}
-            <div className="lg:w-[60%] p-12 md:p-20 bg-white">
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                  <div className="grid md:grid-cols-2 gap-8">
-                    <FormField
-                      control={form.control}
-                      name="fullName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Input placeholder="Full Name" {...field} className="h-16 rounded-[24px] border-gray-100 bg-gray-50/50 px-8 font-bold focus:ring-[#316DFF] transition-all" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Input placeholder="Email Address" {...field} className="h-16 rounded-[24px] border-gray-100 bg-gray-50/50 px-8 font-bold focus:ring-[#316DFF] transition-all" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-8">
-                    <FormField
-                      control={form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Input placeholder="Phone Number" {...field} className="h-16 rounded-[24px] border-gray-100 bg-gray-50/50 px-8 font-bold focus:ring-[#316DFF] transition-all" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="treatment"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Input placeholder="Select Treatment" {...field} className="h-16 rounded-[24px] border-gray-100 bg-gray-50/50 px-8 font-bold focus:ring-[#316DFF] transition-all" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="message"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Textarea placeholder="Tell us about your dental concerns..." {...field} className="min-h-[160px] rounded-[32px] border-gray-100 bg-gray-50/50 px-8 py-6 font-bold focus:ring-[#316DFF] transition-all resize-none" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                <div className="flex items-end gap-3 sm:gap-4">
+                  <img
+                    src="/landing-2/wp-content/uploads/2025/09/hero-info-item-image-1.jpg"
+                    alt="Quote author"
+                    className="h-14 w-14 sm:h-16 sm:w-16 rounded-full object-cover object-center border-2 border-white shadow-md"
                   />
-
-                  <Button type="submit" className="w-full h-16 bg-[#316DFF] hover:bg-[#2655cc] text-white rounded-[24px] text-lg font-black shadow-xl shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-95 group">
-                    Send Appointment Request <CustomArrowIcon className="ml-2 h-5 w-5 group-hover:translate-x-1" />
-                  </Button>
-                </form>
-              </Form>
+                  <div className="flex min-h-12 md:min-h-14 flex-col justify-between">
+                    <p className="text-base sm:text-lg font-extrabold text-gray-900 leading-tight">
+                      Dr. Neel Shah
+                    </p>
+                    <p className="text-sm sm:text-base font-medium text-gray-500">
+                      Lead Dental Specialist
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
